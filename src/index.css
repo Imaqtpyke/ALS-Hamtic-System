@@ -1,0 +1,72 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* The Academic Editorial - Design System */
+@layer base {
+  html { scroll-behavior: smooth; }
+  :root {
+    --brand-primary: #0038A8; /* DepEd Blue */
+    --brand-accent: #E2231A;  /* DepEd Red */
+    --surface: #F9F9F9;
+    --surface-low: #F3F3F3;
+    --surface-lowest: #FFFFFF;
+    --on-surface: #1A1C1C;
+  }
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--surface);
+    color: var(--on-surface);
+  }
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+  ::selection { background: rgba(0, 56, 168, 0.15); color: #0038A8; }
+}
+
+/* Scrollbar (WebKit) */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background-color: rgba(0, 56, 168, 0.1); border-radius: 9999px; }
+*::-webkit-scrollbar-thumb:hover { background-color: rgba(0, 56, 168, 0.2); }
+
+@layer components {
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 transform active:scale-95 min-h-[46px];
+    background: linear-gradient(135deg, #002576 0%, #0038A8 100%);
+    box-shadow: 0 4px 14px rgba(0, 56, 168, 0.2);
+  }
+  .btn-primary:hover {
+    @apply -translate-y-0.5 shadow-lg shadow-blue-900/30;
+  }
+  
+  .btn-cta {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-lg text-white font-bold transition-all duration-300 transform active:scale-95 min-h-[46px];
+    background-color: var(--brand-accent);
+    box-shadow: 0 4px 14px rgba(226, 35, 26, 0.3);
+  }
+  .btn-cta:hover {
+    @apply -translate-y-0.5 shadow-lg shadow-red-500/40;
+  }
+
+  /* No-Line Cards - Tonal Layering */
+  .card-tonal {
+    @apply bg-white rounded-2xl transition-all duration-300;
+    box-shadow: 0 10px 30px rgba(0, 56, 168, 0.04);
+  }
+  .card-tonal:hover {
+    @apply -translate-y-1 shadow-xl shadow-blue-900/5;
+  }
+
+  .surface-tonal {
+    @apply bg-[#F3F3F3];
+  }
+
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
