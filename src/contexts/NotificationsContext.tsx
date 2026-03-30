@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { useAuth } from '../AuthContext';
+import { toast } from 'react-hot-toast';
 
 export type AppNotification = {
   id: string;
@@ -12,9 +13,9 @@ export type AppNotification = {
 type NotificationsContextValue = {
   notifications: AppNotification[];
   unreadCount: number;
-  markAllRead: () => void;
+  markAllRead: () => Promise<void>;
   addNotification: (n: AppNotification) => void;
-  removeNotification: (id: string) => void;
+  removeNotification: (id: string) => Promise<void>;
 };
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
@@ -25,75 +26,102 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
+  // Fetch notifications from Supabase
+  const fetchNotifications = async () => {
+    if (!user?.uid || !isSupabaseConfigured) return;
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.uid)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('Error fetching notifications:', error);
+    } else {
+      setNotifications(data.map(n => ({
+        id: n.id,
+        message: n.message,
+        createdAt: n.created_at,
+        read: n.is_read
+      })));
+    }
+  };
+
   const addNotification = (n: AppNotification) => {
     setNotifications(prev => [n, ...prev].slice(0, 20));
   };
 
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  const removeNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
+  const markAllRead = async () => {
+    if (!user?.uid || !isSupabaseConfigured) return;
+    
+    // Optimistic Update
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
-  // Subscribe to enrollment status updates for this user
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.uid)
+      .eq('is_read', false);
+
+    if (error) {
+       toast.error('Failed to sync notification status');
+       fetchNotifications(); // Rollback/Resync
+    }
+  };
+
+  const removeNotification = async (id: string) => {
+    if (!user?.uid || !isSupabaseConfigured) return;
+    
+    // Optimistic Update
+    setNotifications(prev => prev.filter(n => n.id !== id));
+
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+       toast.error('Failed to delete notification');
+       fetchNotifications(); // Rollback/Resync
+    }
+  };
+
+  // Real-time synchronization
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !isSupabaseConfigured) return;
 
-    let cancelled = false;
-
-    // Fetch latest enrollment to seed an initial state (optional)
-    const seed = async () => {
-      const { data } = await supabase
-        .from('enrollments')
-        .select('id, status, submitted_at')
-        .eq('user_id', user.uid)
-        .order('submitted_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!cancelled && data?.status && data?.status !== 'pending') {
-        addNotification({
-          id: `seed-${data.id}`,
-          message: `Your application was ${data.status}.`,
-          createdAt: new Date().toISOString(),
-          read: false,
-        });
-      }
-    };
-
-    seed();
+    fetchNotifications();
 
     const channel = supabase
-      .channel(`enrollments-status-${user.uid}`)
+      .channel(`user-notifications-${user.uid}`)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
-          table: 'enrollments',
+          table: 'notifications',
           filter: `user_id=eq.${user.uid}`,
         },
-        (payload: any) => {
-          const oldStatus = payload?.old?.status;
-          const newStatus = payload?.new?.status;
-          if (oldStatus && newStatus && oldStatus !== newStatus) {
-            const msg = newStatus === 'approved'
-              ? 'Good news! Your application has been approved.'
-              : newStatus === 'rejected'
-                ? 'Your application was rejected. Please check the reason and try again.'
-                : `Your application status changed to ${newStatus}.`;
-            addNotification({
-              id: payload.new.id + ':' + payload.commit_timestamp,
-              message: msg,
-              createdAt: new Date().toISOString(),
-              read: false,
-            });
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newN: AppNotification = {
+              id: payload.new.id,
+              message: payload.new.message,
+              createdAt: payload.new.created_at,
+              read: payload.new.is_read
+            };
+            addNotification(newN);
+            toast.success('New update received!', { icon: '🔔' });
+          } else {
+            fetchNotifications();
           }
         }
       )
-      .subscribe(() => {
-        // no-op
-        return undefined;
-      });
+      .subscribe();
 
     return () => {
-      cancelled = true;
       supabase.removeChannel(channel);
     };
   }, [user?.uid]);

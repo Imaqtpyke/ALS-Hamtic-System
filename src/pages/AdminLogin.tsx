@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, AlertCircle, User } from 'lucide-react';
+import { Eye, EyeOff, Lock, AlertCircle, User, ArrowLeft as ArrowLeftIcon } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -93,7 +93,7 @@ const AdminLogin: React.FC = () => {
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+                  <User className="h-5 w-5 text-gray-500" />
                 </div>
                 <input
                   type="email"
@@ -114,7 +114,7 @@ const AdminLogin: React.FC = () => {
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                  <Lock className="h-5 w-5 text-gray-500" />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -199,8 +199,12 @@ const AdminLogin: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">© {new Date().getFullYear()} Department of Education - ALS Hamtic, Antique</p>
+        <div className="mt-8 text-center">
+          <a href="/" className="text-sm font-bold text-red-600 hover:text-red-700 flex items-center justify-center gap-2">
+             <ArrowLeftIcon className="w-4 h-4" />
+             Back to Website
+          </a>
+          <p className="text-sm text-gray-500 mt-6">© {new Date().getFullYear()} Department of Education - ALS Hamtic, Antique</p>
         </div>
       </div>
     </div>

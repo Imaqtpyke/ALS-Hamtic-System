@@ -47,7 +47,7 @@ BEGIN
         'status', NEW.status,
         'date', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
         'notes', NEW.notes,
-        'updated_by', auth.uid()
+        'updated_by', auth.uid()::text
       );
   END IF;
   RETURN NEW;

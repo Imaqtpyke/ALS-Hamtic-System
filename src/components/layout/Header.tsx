@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, NavLink as RRNavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
+import { useDataContext } from '../../DataContext';
 import NotificationBell from '../common/NotificationBell';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,6 +12,8 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { students } = useDataContext();
+
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 10) {
@@ -22,7 +25,9 @@ const Header = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-  // (Removed notification dropdown and outside click handler)
+
+  const studentData = user?.role?.role === 'student' ? students.find((s: any) => s.id === user.uid) : null;
+  const displayName = studentData?.name || user?.displayName || user?.email?.split('@')[0] || 'User';
 
   return <header className={`sticky top-0 z-50 transition-all duration-500 ease-in-out ${scrolled ? 'bg-white/80 backdrop-blur-md border-b border-gray-200/60 shadow-sm' : 'bg-white/70 backdrop-blur-md'}`}>
       <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -62,30 +67,41 @@ const Header = () => {
           </div>
           <div className="hidden md:flex items-center space-x-4 ml-8">
             {user ? (
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-700 text-sm font-medium">{user?.email}</span>
+              <div className="flex items-center space-x-4">
+                <div className="flex flex-col items-end">
+                   <span className="text-gray-900 text-sm font-bold leading-tight">{displayName}</span>
+                   <span className="text-gray-400 text-[10px] uppercase font-black tracking-widest leading-none">{user?.role?.role || 'Guest'}</span>
+                </div>
                 {user?.role?.role !== 'admin' && (
-                  <NotificationBell />
+                  <>
+                    <RRNavLink
+                      to="/dashboard"
+                      className="hidden sm:inline-flex items-center px-4 py-1.5 bg-blue-50 rounded-xl text-xs font-bold text-[#0038A8] hover:bg-blue-100 transition-all shadow-sm"
+                    >
+                      My Dashboard
+                    </RRNavLink>
+                    <NotificationBell />
+                  </>
                 )}
                 {user?.role?.role === 'admin' && (
                   <Link
                     to="/admin"
-                    className="ml-2 px-3 py-1 border border-blue-500 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 transition touch-target flex items-center"
+                    className="px-4 py-1.5 bg-blue-50 rounded-xl text-xs font-bold text-blue-700 hover:bg-blue-100 transition-all shadow-sm"
                   >
                     Admin Panel
                   </Link>
                 )}
                 <button
                   onClick={async () => { await logout(); navigate('/'); }}
-                  className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 touch-target"
+                  className="px-4 py-1.5 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all touch-target"
                 >
                   Logout
                 </button>
               </div>
             ) : (
               <div className="flex items-center space-x-2">
-                <Link to="/login" className="btn-primary py-1.5 px-4 text-sm scale-90">
-                  Login
+                <Link to="/login" className="btn-primary py-1.5 px-6 text-sm">
+                  Login Access
                 </Link>
               </div>
             )}
@@ -122,6 +138,19 @@ const Header = () => {
               >
                 Enroll Now
               </Link>
+              {user && user.role?.role !== 'admin' && (
+                <Link
+                  to="/dashboard"
+                  className={`block px-3 py-3 rounded-md text-base font-medium touch-target ${
+                    location.pathname === '/dashboard'
+                      ? 'bg-blue-50 text-[#0038A8] border-l-4 border-[#0038A8]'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-[#0038A8]'
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  My Dashboard
+                </Link>
+              )}
               <MobileNavLink to="/about" active={location.pathname === '/about'} onClick={() => setIsMenuOpen(false)}>
                 About ALS
               </MobileNavLink>

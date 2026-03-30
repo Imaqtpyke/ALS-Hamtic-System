@@ -31,7 +31,7 @@ CREATE POLICY "Users can view only their own firebase mapping"
   ON public.firebase_users
   FOR SELECT
   TO authenticated
-  USING (firebase_uid = auth.uid());
+  USING (firebase_uid = auth.uid()::text);
 
 CREATE POLICY "Service role can manage all firebase users"
   ON public.firebase_users
@@ -43,7 +43,7 @@ CREATE POLICY "System can create initial firebase mapping"
   ON public.firebase_users
   FOR INSERT
   TO authenticated
-  WITH CHECK (firebase_uid = auth.uid());
+  WITH CHECK (firebase_uid = auth.uid()::text);
 
 -- Enrollments Table Policies
 -- Read policies

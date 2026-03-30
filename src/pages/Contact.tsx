@@ -370,7 +370,7 @@ const Contact: React.FC = () => {
                   </span>
                   <div className={`p-2 rounded-full transition-colors ${expandedFaq === index ? 'bg-[#0038A8]/10' : 'bg-gray-50'}`}>
                     <ChevronDownIcon className={`h-5 w-5 transition-transform duration-300 ${
-                      expandedFaq === index ? 'rotate-180 text-[#0038A8]' : 'text-gray-400'
+                      expandedFaq === index ? 'rotate-180 text-[#0038A8]' : 'text-gray-500'
                     }`} />
                   </div>
                 </button>

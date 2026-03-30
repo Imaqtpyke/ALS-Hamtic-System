@@ -493,11 +493,14 @@ const Enrollment = () => {
               </div>
             </div>
             <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-              <button onClick={() => navigate('/')} className="btn-primary">
+              <button onClick={() => navigate('/')} className="btn-secondary">
                 Return to Home
               </button>
-              <button onClick={() => navigate('/about')} className="btn-secondary">
-                Learn About ALS
+              <button 
+                onClick={() => navigate('/dashboard')} 
+                className="btn-primary"
+              >
+                Go to My Dashboard
               </button>
             </div>
           </motion.div>
@@ -522,13 +525,25 @@ const Enrollment = () => {
         </div>
         {/* Progress Tracker */}
         <div className="mb-12" aria-label="Enrollment progress" role="region" aria-live="polite">
-          <div className="flex items-center justify-between w-full mb-6">
+          {/* Mobile Step Description */}
+          <div className="sm:hidden mb-4 text-center">
+             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0038A8] mb-1">Step {currentStep} of {totalSteps}</p>
+             <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">
+                {currentStep === 1 && 'Personal Information'}
+                {currentStep === 2 && 'Educational History'}
+                {currentStep === 3 && 'Learning Preferences'}
+                {currentStep === 4 && 'Subject Selection'}
+                {currentStep === 5 && 'Final Review'}
+             </h3>
+          </div>
+
+          <div className="flex items-center justify-between w-full mb-6 gap-2">
             {[1, 2, 3, 4, 5].map(step => (
               <div key={step} className="flex flex-col items-center flex-1" aria-current={currentStep === step ? 'step' : undefined}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm ${currentStep >= step ? 'bg-[#0038A8] text-white' : 'bg-gray-200 text-gray-500'}`}>
-                  {currentStep > step ? <CheckCircleIcon className="h-6 w-6" /> : <span className="text-sm font-bold">{step}</span>}
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm ${currentStep >= step ? 'bg-[#0038A8] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                  {currentStep > step ? <CheckCircleIcon className="h-5 w-5 sm:h-6 sm:w-6" /> : <span className="text-xs sm:text-sm font-bold">{step}</span>}
                 </div>
-                <div className={`text-[10px] uppercase tracking-wider mt-3 text-center hidden sm:block font-bold ${currentStep === step ? 'text-[#0038A8]' : 'text-gray-400'}`}>
+                <div className={`text-[10px] uppercase tracking-wider mt-3 text-center hidden sm:block font-extrabold ${currentStep === step ? 'text-[#0038A8]' : 'text-gray-500'}`}>
                   {step === 1 && 'Personal Info'}
                   {step === 2 && 'Educational'}
                   {step === 3 && 'Preferences'}
@@ -577,7 +592,7 @@ const Enrollment = () => {
         )}
 
         {/* Form Container */}
-        <div className="card-tonal p-6 sm:p-10 md:p-12 overflow-hidden min-h-[400px]">
+        <div className="card-tonal p-4 sm:p-10 md:p-12 overflow-hidden min-h-[400px]">
           <form onSubmit={handleSubmit}>
             <AnimatePresence mode="wait">
               <motion.div
@@ -844,8 +859,19 @@ const Enrollment = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to cancel your application? Any unsaved progress will be lost.')) {
+                      window.location.href = '/';
+                    }
+                  }}
+                  className="px-6 py-3 rounded-lg text-sm font-bold text-red-400 hover:text-red-500 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
                   onClick={clearCurrentStep}
-                  className="px-6 py-3 rounded-lg text-sm font-bold text-gray-500 hover:text-red-500 transition-colors"
+                  className="px-6 py-3 rounded-lg text-sm font-bold text-gray-400 hover:text-gray-500 transition-colors"
                   disabled={isSubmitting}
                 >
                   Reset Step

@@ -4,7 +4,14 @@ DROP POLICY IF EXISTS "Students can create their own enrollments" ON public.enro
 DROP POLICY IF EXISTS "Students can update their own pending enrollments" ON public.enrollments;
 DROP POLICY IF EXISTS "Admins can view all enrollments" ON public.enrollments;
 DROP POLICY IF EXISTS "Admins can manage enrollments" ON public.enrollments;
-DROP POLICY IF EXISTS "System manages rate limits" ON public.rate_limits;
+
+-- Only drop rate limit policy if table exists
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'rate_limits') THEN
+        DROP POLICY IF EXISTS "System manages rate limits" ON public.rate_limits;
+    END IF;
+END $$;
 
 -- Drop existing functions
 DROP FUNCTION IF EXISTS is_student();
@@ -19,7 +26,7 @@ BEGIN
   RETURN EXISTS (
     SELECT 1
     FROM public.profiles
-    WHERE id = auth.uid()
+    WHERE id = auth.uid()::text
       AND role = 'student'
   );
 END;
@@ -31,7 +38,7 @@ BEGIN
   RETURN EXISTS (
     SELECT 1
     FROM public.profiles
-    WHERE id = auth.uid()
+    WHERE id = auth.uid()::text
       AND role = 'admin'
   );
 END;

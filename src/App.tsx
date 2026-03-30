@@ -16,9 +16,9 @@ const Enrollment = lazy(() => import('./pages/Enrollment'));
 const About = lazy(() => import('./pages/About'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Login = lazy(() => import('./pages/Login'));
-const AdminLogin = lazy(() => import('./pages/AdminLogin.tsx'));
-// Admin: route directly to Pending Applications view
-const PendingApplications = lazy(() => import('./pages/admin/PendingApplications'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 const AppContent = () => {
   const location = useLocation();
@@ -74,6 +74,7 @@ const AppContent = () => {
                   : <Navigate to="/enrollment" />
                 : <AdminLogin />
             } />
+            
             {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
@@ -86,11 +87,15 @@ const AppContent = () => {
               </RequireAuth>
             } />
             
-            {/* Student Dashboard removed */}
+            <Route path="/dashboard" element={
+              <RequireAuth>
+                <StudentDashboard />
+              </RequireAuth>
+            } />
             
             <Route path="/admin" element={
               <RequireAuth adminOnly>
-                <PendingApplications />
+                <AdminDashboard />
               </RequireAuth>
             } />
             

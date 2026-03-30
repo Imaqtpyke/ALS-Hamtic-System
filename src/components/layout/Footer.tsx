@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FacebookIcon, TwitterIcon, InstagramIcon, PhoneIcon, MailIcon, MapPinIcon, YoutubeIcon, LinkedinIcon, ExternalLinkIcon, HeartIcon, ChevronDownIcon } from 'lucide-react';
+import { PhoneIcon, MailIcon, MapPinIcon, ExternalLinkIcon, HeartIcon, ChevronDownIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Footer = () => {
@@ -28,13 +28,15 @@ const Footer = () => {
               Alternative Learning System (ALS) of the Department of Education,
               Hamtic, Antique. Providing educational opportunities for all.
             </p>
+            {/* 
             <div className="flex flex-wrap gap-2 mt-6 justify-center md:justify-start">
               <SocialButton icon={<FacebookIcon className="h-5 w-5" />} />
               <SocialButton icon={<TwitterIcon className="h-5 w-5" />} />
               <SocialButton icon={<InstagramIcon className="h-5 w-5" />} />
               <SocialButton icon={<YoutubeIcon className="h-5 w-5" />} />
               <SocialButton icon={<LinkedinIcon className="h-5 w-5" />} />
-            </div>
+            </div> 
+            */}
           </div>
           
           <div className="w-full">
@@ -138,14 +140,6 @@ const Footer = () => {
         </div>
       </div>
     </footer>
-  );
-};
-
-const SocialButton = ({ icon }: { icon: React.ReactNode }) => {
-  return (
-    <a href="#" className="h-11 w-11 rounded-full bg-blue-800 hover:bg-red-600 flex items-center justify-center transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-blue-900 focus:ring-red-500">
-      {icon}
-    </a>
   );
 };
 
