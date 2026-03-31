@@ -20,8 +20,10 @@ import {
   FileTextIcon,
   MailIcon
 } from 'lucide-react';
+import { useDataContext } from '../DataContext';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
+import { LockIcon } from 'lucide-react';
 
 interface EnrollmentRecord {
   id: string;
@@ -52,13 +54,14 @@ interface Announcement {
 const StudentDashboard = () => {
   const { user } = useAuth();
   const [enrollment, setEnrollment] = useState<EnrollmentRecord | null>(null);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
-  const [modules, setModules] = useState<any[]>([]);
+  const { grades, profiles, announcements } = useDataContext();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
   const [submittingInquiry, setSubmittingInquiry] = useState(false);
+  const [isAccountBlocked, setIsAccountBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -93,6 +96,19 @@ const StudentDashboard = () => {
             });
           }
           fetchDashboardData(false);
+        })
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'assessments',
+          filter: `user_id=eq.${user.uid}`
+        }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            toast.success(`New Grade Posted: ${payload.new.module_name}`, { icon: '📊' });
+          } else if (payload.eventType === 'UPDATE') {
+            toast.success(`Grade Updated: ${payload.new.module_name}`, { icon: '🔄' });
+          }
+          fetchDashboardData();
         })
         .on('postgres_changes', { 
           event: 'INSERT', 
@@ -132,19 +148,6 @@ const StudentDashboard = () => {
       if (enrollError) throw enrollError;
       setEnrollment(enrollData);
 
-      // Fetch announcements
-      const { data: announceData, error: announceError } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (announceError) {
-        console.warn('Could not fetch announcements:', announceError);
-      } else {
-        setAnnouncements(announceData || []);
-      }
-
       // Fetch student inquiries
       const { data: inqData } = await supabase
         .from('inquiries')
@@ -153,12 +156,12 @@ const StudentDashboard = () => {
         .order('created_at', { ascending: false });
       setInquiries(inqData || []);
 
-      // Fetch learning modules
-      const { data: modData } = await supabase
-        .from('learning_modules')
-        .select('*, subjects(name)')
-        .eq('is_active', true);
-      setModules(modData || []);
+      // Check blocked status
+      const userProfile = profiles.find(p => p.id === user?.uid);
+      if (userProfile?.is_blocked) {
+        setIsAccountBlocked(true);
+        setBlockReason(userProfile.block_reason || 'No reason provided');
+      }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       toast.error('Failed to load dashboard data');
@@ -233,6 +236,23 @@ const StudentDashboard = () => {
     );
   };
 
+  if (isAccountBlocked) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6 text-center">
+        <div className="w-24 h-24 bg-red-600 rounded-[40px] flex items-center justify-center text-white mb-8 shadow-2xl shadow-red-600/20">
+          <LockIcon size={48} />
+        </div>
+        <h1 className="text-4xl font-black text-gray-900 mb-4 uppercase tracking-tighter">Account Restricted</h1>
+        <p className="text-gray-600 max-w-md mb-10 font-bold font-sans">Your access to the ALS Hamtic Portal has been temporarily restricted by the administration.</p>
+        <div className="bg-red-50 p-6 rounded-3xl border border-red-100 max-w-md mb-10">
+          <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-2">Reason for Restriction</p>
+          <p className="text-sm font-bold text-red-900 italic">"{blockReason}"</p>
+        </div>
+        <a href="mailto:hamtic.als@deped.gov.ph" className="text-sm font-black text-red-600 hover:underline uppercase tracking-widest">Contact Coordinator Support</a>
+      </div>
+    );
+  }
+
   if (!hasInitialLoaded && loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white">
@@ -282,7 +302,7 @@ const StudentDashboard = () => {
             {/* Tab Navigation */}
             {enrollment && enrollment.status === 'enrolled' && (
               <div className="flex gap-4 mb-8 bg-gray-100 p-1.5 rounded-2xl w-fit">
-                {['overview', 'materials', 'support'].map((tab) => (
+                {['overview', 'grades', 'support'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -375,38 +395,38 @@ const StudentDashboard = () => {
                   </div>
                 </div>
               </div>
-            ) : activeTab === 'materials' ? (
+            ) : activeTab === 'grades' ? (
               <div className="space-y-6">
                  <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm">
-                    <h3 className="text-2xl font-black font-display mb-2">Learning Materials</h3>
-                    <p className="text-sm text-gray-500 font-medium tracking-wide border-b border-gray-50 pb-6 mb-8 uppercase">Download digital ALS modules for your strand</p>
+                    <h3 className="text-2xl font-black font-display mb-2">Academic Gradebook</h3>
+                    <p className="text-xs text-gray-500 font-black tracking-widest border-b border-gray-50 pb-6 mb-8 uppercase">Official Module Assessment Summary</p>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       {modules.length === 0 ? (
-                         <div className="col-span-full py-20 text-center bg-gray-50 rounded-3xl">
+                    <div className="grid grid-cols-1 gap-4">
+                       {grades.filter(g => g.user_id === user?.uid).length === 0 ? (
+                         <div className="py-20 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
                             <BookOpenIcon className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No materials uploaded for your strand yet.</p>
+                            <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">No assessment results recorded yet.</p>
                          </div>
                        ) : (
-                         modules.map((mod) => (
-                           <div key={mod.id} className="p-6 bg-gray-50 rounded-[24px] group hover:bg-[#0038A8] transition-all duration-300 flex items-center justify-between border border-transparent hover:shadow-xl hover:shadow-blue-900/10 active:scale-[0.98]">
-                              <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#0038A8] group-hover:scale-110 transition-transform shadow-sm">
-                                    <FileTextIcon className="w-6 h-6" />
+                         grades.filter(g => g.user_id === user?.uid).map((g) => (
+                           <div key={g.id} className="p-6 bg-gray-50 rounded-[24px] flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all border border-transparent hover:border-blue-100">
+                              <div className="flex items-center gap-6">
+                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black italic text-lg ${
+                                   g.status === 'passed' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                 }`}>
+                                    {g.status === 'passed' ? 'A+' : 'F'}
                                  </div>
                                  <div>
-                                    <h4 className="font-black text-gray-900 group-hover:text-white transition-colors text-sm uppercase truncate max-w-[150px]">{mod.title}</h4>
-                                    <p className="text-[10px] font-bold text-gray-500 group-hover:text-blue-200 transition-colors uppercase tracking-widest">ALS Module • PDF</p>
+                                    <h4 className="font-black text-gray-900 text-sm uppercase">{g.module_name}</h4>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Recorded on {new Date(g.created_at).toLocaleDateString()}</p>
                                  </div>
                               </div>
-                              <a 
-                                href={mod.file_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#0038A8] hover:scale-110 transition-all shadow-sm"
-                              >
-                                 <DownloadCloudIcon className="w-5 h-5" />
-                              </a>
+                              <div className="text-right">
+                                 <p className="text-2xl font-black text-gray-900 tabular-nums">{g.score}<span className="text-gray-300 text-sm ml-1">/ {g.max_score}</span></p>
+                                 <p className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${
+                                   g.status === 'passed' ? 'text-green-600' : 'text-red-600'
+                                 }`}>{g.status}</p>
+                              </div>
                            </div>
                          ))
                        )}

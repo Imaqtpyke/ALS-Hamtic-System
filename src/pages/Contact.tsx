@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { MapPinIcon, PhoneIcon, MailIcon, ClockIcon, CheckCircleIcon, ArrowRightIcon, MessageSquareIcon, HelpCircleIcon, ChevronDownIcon } from 'lucide-react';
 import ContactMap from '../components/ContactMap';
+import { supabase } from '../supabaseClient';
+import { useAuth } from '../AuthContext';
+import { toast } from 'react-hot-toast';
 
 const Contact: React.FC = () => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -12,6 +16,7 @@ const Contact: React.FC = () => {
   });
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -26,9 +31,21 @@ const Contact: React.FC = () => {
     });
   };
   
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setTimeout(() => {
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase.from('inquiries').insert({
+        user_id: user?.uid || null,
+        subject: formData.subject,
+        message: `${formData.message}\n\nContact Details:\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone}`,
+        status: 'open'
+      });
+
+      if (error) throw error;
+
+      toast.success('Your message has been sent successfully!');
       setFormSubmitted(true);
       setFormData({
         name: '',
@@ -37,7 +54,12 @@ const Contact: React.FC = () => {
         subject: '',
         message: ''
       });
-    }, 1000);
+    } catch (error) {
+      console.error('Error submitting inquiry:', error);
+      toast.error('Failed to send message. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const toggleFaq = (index: number) => {

@@ -4,7 +4,7 @@ import {
   BookOpenIcon, CalendarIcon, BellIcon, FileTextIcon, SettingsIcon, LogOutIcon, 
   ChevronDownIcon, CheckCircleIcon, ClockIcon, UsersIcon, PlusCircleIcon, 
   BarChart2Icon, GridIcon, SearchIcon, TrashIcon, EditIcon, EyeIcon, 
-  DownloadIcon, HistoryIcon, AlertTriangleIcon, InfoIcon, MapPinIcon, MenuIcon, XIcon
+  DownloadIcon, HistoryIcon, AlertTriangleIcon, InfoIcon, MapPinIcon, MenuIcon, XIcon, ShieldIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDataContext, Student, Subject, Announcement } from '../DataContext';
@@ -37,15 +37,26 @@ const StatCard = ({ icon, title, value, change, color }: any) => (
 );
 
 const PromptModal = ({ title, fields, onSubmit, onCancel, submitting = false }: any) => {
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<any>(() => {
+    const initial: any = {};
+    fields.forEach((f: any) => {
+      if (f.defaultValue) initial[f.name] = f.defaultValue;
+      // If it's a select and has no default, set to first option if required
+      if (f.type === 'select' && !initial[f.name] && f.options?.length > 0) {
+        // We can choose not to default, but usually for select it helps
+      }
+    });
+    return initial;
+  });
+
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white p-10 rounded-[48px] shadow-2xl w-full max-w-lg border border-gray-100"
+        className="bg-white p-8 rounded-[32px] shadow-2xl w-full max-w-lg border border-gray-100 max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col"
       >
-        <h2 className="text-3xl font-black mb-8 font-display uppercase tracking-tighter text-gray-900">{title}</h2>
+        <h2 className="text-2xl font-black mb-6 font-display uppercase tracking-tight text-gray-900">{title}</h2>
         <div className="space-y-6">
           {fields.map((f: any) => (
             <div key={f.name} className="space-y-2">
@@ -54,13 +65,26 @@ const PromptModal = ({ title, fields, onSubmit, onCancel, submitting = false }: 
                 <textarea 
                   className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-4 focus:ring-red-600/10 transition-all font-medium text-sm" 
                   rows={4}
+                  defaultValue={f.defaultValue || ''}
                   placeholder={f.placeholder}
                   onChange={e => setFormData({...formData, [f.name]: e.target.value})}
                 />
+              ) : f.type === 'select' ? (
+                <select 
+                  className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-4 focus:ring-red-600/10 transition-all font-bold text-sm"
+                  onChange={e => setFormData({...formData, [f.name]: e.target.value})}
+                  defaultValue={f.defaultValue || ""}
+                >
+                  <option value="" disabled>{f.placeholder || 'Select an option'}</option>
+                  {f.options?.map((opt: any) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               ) : (
                 <input 
                   type={f.type || 'text'}
                   className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-4 focus:ring-red-600/10 transition-all font-bold text-sm"
+                  defaultValue={f.defaultValue || ''}
                   placeholder={f.placeholder}
                   onChange={e => setFormData({...formData, [f.name]: e.target.value})}
                 />
@@ -93,35 +117,32 @@ const AdminDashboard = () => {
   
   // Data State
   const { 
-    students, subjects, announcements, loading: contextLoading, error: contextError, 
-    updateStudent, deleteStudent, 
+    students, subjects, announcements, 
+    profiles, auditLogs, grades,
+    loading: contextLoading, error: contextError, 
+    updateStudent, deleteStudent, addStudent, 
     addSubject, updateSubject, deleteSubject,
-    addAnnouncement, refreshData
+    addAnnouncement, updateAnnouncement, deleteAnnouncement,
+    refreshData,
+    blockUser, unblockUser, deleteUserAccount,
+    addGrade, updateGrade, deleteGrade
   } = useDataContext();
 
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [assessments, setAssessments] = useState<any[]>([]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
-  const [modules, setModules] = useState<any[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
-  const [logPage, setLogPage] = useState(1);
-  const [hasMoreLogs, setHasMoreLogs] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   // Forms Visibility
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [showSubjectForm, setShowSubjectForm] = useState(false);
   const [editSubject, setEditSubject] = useState<Subject | null>(null);
-  const [showAnnounceForm, setShowAnnounceForm] = useState(false);
   const [editAnnounce, setEditAnnounce] = useState<any | null>(null);
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [promptModal, setPromptModal] = useState<{ title: string; fields: any[]; onSubmit: (data: any) => void } | null>(null);
   const [isPromptSubmitting, setIsPromptSubmitting] = useState(false);
 
   useEffect(() => {
     fetchDashboardSpecificData();
-    fetchLogs(1);
 
     // Admin Real-time Inquiry Alert
     if (isSupabaseConfigured) {
@@ -137,7 +158,6 @@ const AdminDashboard = () => {
             duration: 5000 
           });
           refreshData(); // Refresh global context
-          fetchDashboardSpecificData(); // Refresh local secondary data
         })
         .subscribe();
 
@@ -154,17 +174,13 @@ const AdminDashboard = () => {
     }
     setIsDataLoading(true);
     try {
-      const [schRes, assessRes, inqRes, modRes] = await Promise.all([
-        supabase.from('schedules').select('*, subjects(name)').order('created_at', { ascending: false }),
-        supabase.from('assessments').select('*, enrollments(personal_info)').order('created_at', { ascending: false }),
-        supabase.from('inquiries').select('*, enrollments(personal_info)').order('created_at', { ascending: false }),
-        supabase.from('learning_modules').select('*, subjects(name)').order('created_at', { ascending: false })
-      ]);
+      const { data: inqData, error: inqError } = await supabase
+        .from('inquiries')
+        .select('*, enrollments(personal_info)')
+        .order('created_at', { ascending: false });
 
-      setSchedules(schRes.data || []);
-      setAssessments(assessRes.data || []);
-      setInquiries(inqRes.data || []);
-      setModules(modRes.data || []);
+      if (inqError) throw inqError;
+      setInquiries(inqData || []);
     } catch (err) {
       console.error('Error fetching secondary admin data:', err);
       toast.error('Failed to sync system data');
@@ -173,32 +189,82 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchLogs = async (page: number) => {
-    const limit = 20;
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      toast.error('Could not load logs');
-      return;
-    }
-
-    if (page === 1) setAuditLogs(data || []);
-    else setAuditLogs([...auditLogs, ...(data || [])]);
-    
-    setHasMoreLogs(data?.length === limit);
-    setLogPage(page);
-  };
 
   // Handlers
-  const handleAddStudent = () => { setEditStudent(null); setShowStudentForm(true); };
-  const handleEditStudent = (s: Student) => { setEditStudent(s); setShowStudentForm(true); };
+  const handleAddStudent = () => {
+    setPromptModal({
+      title: 'Add New Learner',
+      fields: [
+        { name: 'name', label: 'Full Name', type: 'text', placeholder: 'Last Name, First Name' },
+        { name: 'email', label: 'Email Address', type: 'email', placeholder: 'student@example.com' },
+        { name: 'lrn', label: 'LRN (12 Digits)', type: 'text', placeholder: '000000000000' },
+        { 
+          name: 'status', 
+          label: 'Initial Status', 
+          type: 'select', 
+          defaultValue: 'pending',
+          options: [
+            { label: 'Pending for Review', value: 'pending' },
+            { label: 'Currently Enrolled', value: 'enrolled' },
+            { label: 'Rejected / Incomplete', value: 'rejected' }
+          ]
+        }
+      ],
+      onSubmit: async (data) => {
+        if (!data.name || !data.email) return toast.error('Required fields missing');
+        setIsPromptSubmitting(true);
+        try {
+          await addStudent({
+            ...data,
+            enrollmentDate: new Date().toISOString(),
+            subjects: 0,
+            progress: 0
+          });
+          toast.success('Learner added to registry');
+          setPromptModal(null);
+        } catch (err: any) {
+          toast.error(err.message || 'Addition failed');
+        } finally {
+          setIsPromptSubmitting(false);
+        }
+      }
+    });
+  };
+
+  const handleEditStudent = (s: Student) => {
+    setPromptModal({
+      title: 'Modify Learner Record',
+      fields: [
+        { name: 'name', label: 'Full Name', type: 'text', defaultValue: s.name },
+        { name: 'email', label: 'Email Address', type: 'email', defaultValue: s.email },
+        { 
+          name: 'status', 
+          label: 'Enrollment Status', 
+          type: 'select', 
+          defaultValue: s.status,
+          options: [
+            { label: 'Pending for Review', value: 'pending' },
+            { label: 'Currently Enrolled', value: 'enrolled' },
+            { label: 'Graduated / Completed', value: 'graduated' },
+            { label: 'Rejected / Incomplete', value: 'rejected' }
+          ]
+        }
+      ],
+      onSubmit: async (data) => {
+        setIsPromptSubmitting(true);
+        try {
+          await updateStudent(s.id, data);
+          toast.success('Record updated successfully');
+          setPromptModal(null);
+        } catch (err: any) {
+          toast.error(err.message || 'Update failed');
+        } finally {
+          setIsPromptSubmitting(false);
+        }
+      }
+    });
+  };
+
   const handleDeleteStudent = (id: string) => {
     if (window.confirm('Are you sure you want to PERMANENTLY delete this student record? This action cannot be undone.')) {
       deleteStudent(id);
@@ -211,33 +277,107 @@ const AdminDashboard = () => {
     if (window.confirm('Delete this strand?')) deleteSubject(id);
   };
 
-  const handleAddAnnouncement = () => { setEditAnnounce(null); setShowAnnounceForm(true); };
-  const handleEditAnnounce = (ann: any) => { setEditAnnounce(ann); setShowAnnounceForm(true); };
+  const handleAddAnnouncement = () => {
+    setPromptModal({
+      title: 'Post Announcement',
+      fields: [
+        { name: 'title', label: 'Announcement Title', type: 'text', placeholder: 'e.g. Enrollment Period Extended' },
+        { 
+          name: 'priority', 
+          label: 'Priority Level', 
+          type: 'select', 
+          defaultValue: 'medium',
+          options: [
+            { label: 'Low - Informational', value: 'low' },
+            { label: 'Medium - Important', value: 'medium' },
+            { label: 'High - Critical', value: 'high' }
+          ]
+        },
+        { name: 'message', label: 'Detailed Message', type: 'textarea', placeholder: 'Enter announcement content...' }
+      ],
+      onSubmit: async (data) => {
+        if (!data.title || !data.message) return toast.error('Check all fields');
+        setIsPromptSubmitting(true);
+        try {
+          await addAnnouncement(data);
+          toast.success('Announcement posted and broadcasted');
+          setPromptModal(null);
+        } catch (err: any) {
+          toast.error(err.message || 'Post failed');
+        } finally {
+          setIsPromptSubmitting(false);
+        }
+      }
+    });
+  };
+
+  const handleEditAnnounce = (ann: any) => {
+    setPromptModal({
+      title: 'Edit Announcement',
+      fields: [
+        { name: 'title', label: 'Announcement Title', type: 'text', defaultValue: ann.title },
+        { 
+          name: 'priority', 
+          label: 'Priority Level', 
+          type: 'select', 
+          defaultValue: ann.priority,
+          options: [
+            { label: 'Low - Informational', value: 'low' },
+            { label: 'Medium - Important', value: 'medium' },
+            { label: 'High - Critical', value: 'high' }
+          ]
+        },
+        { name: 'message', label: 'Detailed Message', type: 'textarea', defaultValue: ann.message }
+      ],
+      onSubmit: async (data) => {
+        setIsPromptSubmitting(true);
+        try {
+          await updateAnnouncement(ann.id, data);
+          toast.success('Announcement updated successfully');
+          setPromptModal(null);
+        } catch (err: any) {
+          toast.error(err.message || 'Update failed');
+        } finally {
+          setIsPromptSubmitting(false);
+        }
+      }
+    });
+  };
+
   const handleDeleteAnnounce = async (id: string) => {
-    if (!window.confirm('Delete notice?')) return;
-    const { error } = await supabase.from('announcements').delete().eq('id', id);
-    if (error) {
-       toast.error('Failed to remove notice');
-    } else {
-       toast.success('Notice removed');
-       refreshData(); // DataContext handles the update
+    if (window.confirm('PERMANENTLY REMOVE this announcement from the system?')) {
+      try {
+        await deleteAnnouncement(id);
+        toast.success('Announcement removed successfully');
+      } catch (err: any) {
+        toast.error('Failed to remove announcement: ' + err.message);
+      }
     }
   };
 
-  const handleAnnounceSubmit = async (data: any) => {
-    const { id, ...payload } = data;
+  const handleGradeSubmit = async (data: any) => {
     try {
-      if (id) {
-        const { error } = await supabase.from('announcements').update(payload).eq('id', id);
-        if (error) throw error;
-        toast.success('Notice updated');
+      if (data.id) {
+        const { id, ...updates } = data;
+        await updateGrade(id, updates);
+        toast.success('Grade updated');
       } else {
-        await addAnnouncement(payload);
-        toast.success('Notice posted');
+        await addGrade(data);
+        toast.success('Grade recorded');
       }
-      setShowAnnounceForm(false);
+      setPromptModal(null);
     } catch (err: any) {
-      toast.error(err.message || 'Operation failed');
+      toast.error('Grade Operation Failed: ' + err.message);
+    }
+  };
+
+  const handleDeleteGrade = async (id: string) => {
+    if (!window.confirm('PERMANENTLY remove this grade record?')) return;
+    try {
+      await deleteGrade(id);
+      toast.success('Grade record removed');
+    } catch (err: any) {
+      toast.error('Failed to remove grade: ' + err.message);
     }
   };
 
@@ -333,11 +473,11 @@ const AdminDashboard = () => {
             { id: 'dashboard', name: 'Dashboard', icon: <GridIcon size={20} /> },
             { id: 'analytics', name: 'Analytics', icon: <BarChart2Icon size={20} /> },
             { id: 'students', name: 'Learners', icon: <UsersIcon size={20} /> },
-            { id: 'announcements', name: 'Notices', icon: <BellIcon size={20} /> },
-            { id: 'schedule', name: 'Schedule', icon: <CalendarIcon size={20} /> },
+            { id: 'subjects', name: 'Strand Management', icon: <BookOpenIcon size={20} /> },
+            { id: 'announcements', name: 'Announcements', icon: <BellIcon size={20} /> },
             { id: 'assessments', name: 'Grading', icon: <FileTextIcon size={20} /> },
             { id: 'inquiries', name: 'Messages', icon: <InfoIcon size={20} /> },
-            { id: 'modules', name: 'Materials', icon: <BookOpenIcon size={20} /> },
+            { id: 'users', name: 'Manage Users', icon: <ShieldIcon size={20} /> },
             { id: 'reports', name: 'Audit Logs', icon: <HistoryIcon size={20} /> },
           ].map(item => (
             <button
@@ -398,9 +538,9 @@ const AdminDashboard = () => {
             <div className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <StatCard icon={<UsersIcon className="text-red-700" />} title="Total Enrollees" value={students.length} change="+12.5%" color="bg-red-50" />
-                <StatCard icon={<BookOpenIcon className="text-red-700" />} title="Active Strands" value={subjects.length} change="Stable" color="bg-red-50" />
-                <StatCard icon={<BellIcon className="text-red-700" />} title="New Applications" value={students.filter(s => s.status === 'Pending').length} change="Priority" color="bg-red-50 shadow-sm border border-red-100" />
-                <StatCard icon={<CheckCircleIcon className="text-red-700" />} title="Graduates" value={students.filter(s => s.status === 'Graduated').length} change="+4" color="bg-red-50" />
+                <StatCard icon={<ClockIcon className="text-amber-700" />} title="Pending Learners" value={students.filter(s => s.status === 'pending').length} change="Review Required" color="bg-amber-50 shadow-sm border border-amber-100" />
+                <StatCard icon={<BellIcon className="text-red-700" />} title="Active Announcements" value={announcements.length} change="Stable" color="bg-red-50" />
+                <StatCard icon={<CheckCircleIcon className="text-red-700" />} title="Enrolled" value={students.filter(s => s.status === 'enrolled').length} change="Active" color="bg-red-50" />
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -417,7 +557,6 @@ const AdminDashboard = () => {
                       <thead>
                         <tr className="text-left font-display">
                           <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Learner Information</th>
-                          <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Academic Strand</th>
                           <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Current Status</th>
                         </tr>
                       </thead>
@@ -425,18 +564,14 @@ const AdminDashboard = () => {
                         {students.slice(0, 5).map(s => (
                           <tr key={s.id} className="border-t border-gray-50 group/row hover:bg-gray-50/50 transition-colors">
                             <td className="py-4">
-                              <p className="text-sm font-black text-gray-900 leading-tight mb-0.5">{s.name}</p>
-                              <p className="text-[10px] text-gray-400 font-bold tabular-nums">ID: {s.id}</p>
-                            </td>
-                            <td className="py-4">
-                               <div className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                  <span className="text-xs font-black text-gray-600 uppercase tracking-tight">{s.subjects || 'NOT_ASSIGNED'}</span>
-                               </div>
+                              <p className="text-sm font-black text-gray-900 leading-tight mb-0.5 uppercase">{s.name}</p>
+                              <p className="text-[10px] text-gray-400 font-bold tabular-nums">ID: {s.id.slice(0, 8)}</p>
                             </td>
                             <td className="py-4">
                               <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                                s.status === 'Active' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
+                                s.status === 'enrolled' ? 'bg-green-50 text-green-600 border border-green-100' : 
+                                s.status === 'rejected' ? 'bg-red-50 text-red-600 border border-red-100' :
+                                'bg-amber-50 text-amber-600 border border-amber-100'
                               }`}>{s.status}</span>
                             </td>
                           </tr>
@@ -451,12 +586,9 @@ const AdminDashboard = () => {
                       <div key={s.id} className="p-4 bg-gray-50/50 rounded-2xl border border-gray-100 flex flex-col gap-3">
                         <div className="flex justify-between items-start">
                            <div>
-                              <p className="text-sm font-black text-gray-900">{s.name}</p>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase">Lrn: {s.personal_info?.lrn || 'N/A'}</p>
+                              <p className="text-sm font-black text-gray-900 uppercase">{s.name}</p>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase">Lrn: {s.fullData?.personal_info?.lrn || 'N/A'}</p>
                            </div>
-                           <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                                s.status === 'Active' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
-                              }`}>{s.status}</span>
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-gray-100/50">
                            <BookOpenIcon size={12} className="text-gray-400" />
@@ -484,60 +616,129 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
-          )}
-
-          {activeSidebarItem === 'students' && (
+          )}          {activeSidebarItem === 'students' && (
             <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
               <div className="p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-gray-50">
                 <div>
-                  <h3 className="text-2xl font-black tracking-tight mb-1">Master Registry</h3>
-                  <p className="text-sm font-medium text-gray-400 uppercase tracking-widest">Total: {filteredStudents.length} Learners</p>
+                  <h3 className="text-2xl font-black tracking-tight mb-1 uppercase font-display">Learner Pipeline</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Total Registry: {filteredStudents.length} Profiles</p>
                 </div>
                 <div className="flex gap-4">
                   <select 
                     value={selectedFilter}
                     onChange={e => setSelectedFilter(e.target.value)}
-                    className="bg-gray-50 border-none rounded-2xl px-6 py-3 text-sm font-bold focus:ring-2 focus:ring-red-600"
+                    className="bg-gray-50 border-none rounded-2xl px-6 py-3 text-xs font-black uppercase tracking-widest focus:ring-4 focus:ring-red-600/10 transition-all cursor-pointer"
                   >
                     <option value="all">All Status</option>
-                    <option value="Active">Active</option>
-                    <option value="Pending">Pending</option>
+                    <option value="pending">Pending</option>
+                    <option value="enrolled">Enrolled</option>
+                    <option value="review">Under Review</option>
+                    <option value="rejected">Rejected</option>
                   </select>
-                  <button onClick={handleAddStudent} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-lg shadow-red-600/20 hover:scale-105 transition-all text-sm">Add New Student</button>
                 </div>
               </div>
-              <div className="p-4 sm:p-6 overflow-x-auto hidden md:block">
-                <table className="w-full min-w-[1000px]">
-                  <thead className="bg-gray-50/50">
-                    <tr className="text-left">
-                      <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">ID Sequence</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Full Legal Name</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center leading-none">Strand</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center leading-none">Learning Progress</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">System Status</th>
-                      <th className="px-6 py-4 text-right text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Management</th>
+              
+              <div className="p-4 sm:p-10 overflow-x-auto hidden md:block">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left font-display">
+                      <th className="px-6 pb-8 text-[10px] font-black text-gray-400 uppercase tracking-widest w-12">#</th>
+                      <th className="px-6 pb-8 text-[10px] font-black text-gray-400 uppercase tracking-widest">Identity</th>
+                      <th className="px-6 pb-8 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Coordinator Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50 font-bold">
-                    {filteredStudents.map(s => (
-                      <tr key={s.id} className="hover:bg-gray-50/50 transition-colors group/row">
-                        <td className="px-6 py-6 text-sm tabular-nums text-gray-400">{s.id}</td>
-                        <td className="px-6 py-6 border-l-4 border-red-500 text-sm font-black text-gray-900">{s.name}</td>
-                        <td className="px-6 py-6 text-center text-xs text-gray-500 uppercase tracking-wide font-black italic">{s.subjects || '---'}</td>
-                        <td className="px-6 py-6">
-                           <div className="w-24 h-2 bg-gray-100 rounded-full mx-auto relative overflow-hidden">
-                              <div className="absolute inset-0 bg-red-600 transition-all duration-1000" style={{ width: `${s.progress}%` }}></div>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredStudents.map((s, i) => (
+                      <tr key={s.id} className="hover:bg-gray-50/50 transition-all group/row">
+                        <td className="px-6 py-8 text-[10px] font-black text-gray-300 tabular-nums">
+                           {String(i + 1).padStart(2, '0')}
+                        </td>
+                        <td className="px-6 py-8">
+                           <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center font-black text-gray-900 border border-gray-100 group-hover/row:bg-red-600 group-hover/row:text-white transition-colors uppercase">
+                                 {s.name.charAt(0)}
+                              </div>
+                              <div>
+                                 <p className="text-sm font-black text-gray-900 uppercase tracking-tight leading-tight">{s.name}</p>
+                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">ID: {s.id.slice(0, 8)}</p>
+                              </div>
                            </div>
-                           <p className="text-[10px] text-center mt-1.5 text-gray-400 font-black tabular-nums">{s.progress}%</p>
                         </td>
-                        <td className="px-6 py-6">
-                          <span className={`px-3 py-1 text-[10px] rounded-lg font-black uppercase tracking-widest shadow-sm border ${
-                            s.status === 'Active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'
-                          }`}>{s.status}</span>
-                        </td>
-                        <td className="px-6 py-6 text-right space-x-1">
-                           <button onClick={() => handleEditStudent(s)} className="p-2.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all active:scale-90"><EditIcon size={16} /></button>
-                           <button onClick={() => handleDeleteStudent(s.id)} className="p-2.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90"><TrashIcon size={16} /></button>
+                        <td className="px-6 py-8 text-right">
+                           <div className="flex items-center justify-end gap-1.5">
+                             <button 
+                               onClick={() => setSelectedStudent(s)}
+                               className="p-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all shadow-sm active:scale-90"
+                               title="View Details"
+                             >
+                               <EyeIcon size={16} />
+                             </button>
+                             
+                             {s.status !== 'enrolled' && (
+                               <button 
+                                 onClick={() => {
+                                   setPromptModal({
+                                     title: 'Approve Learner',
+                                     fields: [{ name: 'note', label: 'Welcome Note', placeholder: 'e.g. Welcome to ALS-Hamtic!' }],
+                                     onSubmit: async (data) => {
+                                       setIsPromptSubmitting(true);
+                                       await updateStudent(s.id, { status: 'enrolled' });
+                                       await sendStatusEmail(s.name, s.email, 'enrolled');
+                                       toast.success('Learner approved!');
+                                       setPromptModal(null);
+                                       setIsPromptSubmitting(false);
+                                     }
+                                   });
+                                 }}
+                                 className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm active:scale-90"
+                                 title="Approve"
+                                >
+                                 <CheckCircleIcon size={16} />
+                               </button>
+                             )}
+                             
+                             <button 
+                               onClick={() => {
+                                 setPromptModal({
+                                   title: 'Flag for Review',
+                                   fields: [{ name: 'reason', label: 'Missing Info / Issue', placeholder: 'e.g. Birth certificate is blurry' }],
+                                   onSubmit: async (data) => {
+                                     setIsPromptSubmitting(true);
+                                     await updateStudent(s.id, { status: 'review' });
+                                     await sendStatusEmail(s.name, s.email, 'review', data.reason);
+                                     toast.success('Flagged for review');
+                                     setPromptModal(null);
+                                     setIsPromptSubmitting(false);
+                                   }
+                                 });
+                               }}
+                               className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm active:scale-90"
+                               title="Review"
+                             >
+                               <AlertTriangleIcon size={16} />
+                             </button>
+
+                             <button 
+                               onClick={() => {
+                                 setPromptModal({
+                                   title: 'Decline Application',
+                                   fields: [{ name: 'reason', label: 'Reason for Rejection', placeholder: 'e.g. Ineligible' }],
+                                   onSubmit: async (data) => {
+                                     setIsPromptSubmitting(true);
+                                     await updateStudent(s.id, { status: 'rejected' });
+                                     await sendStatusEmail(s.name, s.email, 'rejected', data.reason);
+                                     toast.success('Application rejected');
+                                     setPromptModal(null);
+                                     setIsPromptSubmitting(false);
+                                   }
+                                 });
+                               }}
+                               className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-90"
+                               title="Reject"
+                             >
+                               <XIcon size={16} />
+                             </button>
+                           </div>
                         </td>
                       </tr>
                     ))}
@@ -545,36 +746,27 @@ const AdminDashboard = () => {
                 </table>
               </div>
 
-              {/* Mobile Mobile-First Card List */}
-              <div className="md:hidden divide-y divide-gray-100">
-                {filteredStudents.map(s => (
-                  <div key={s.id} className="p-5 flex flex-col gap-4 group active:bg-gray-50 transition-all">
+              {/* Mobile Registry Card View */}
+              <div className="md:hidden divide-y divide-gray-50 p-6">
+                {filteredStudents.map((s, i) => (
+                  <div key={s.id} className="py-6 space-y-4">
                     <div className="flex justify-between items-start">
-                      <div className="flex gap-4 items-center">
-                        <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 font-black text-xs tabular-nums">
-                          {s.id.toString().slice(-2)}
-                        </div>
-                        <div>
-                          <h4 className="font-black text-gray-900 leading-tight">{s.name}</h4>
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{s.subjects || 'NOT_ASSIGNED'}</p>
-                        </div>
-                      </div>
-                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm border ${
-                        s.status === 'Active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'
-                      }`}>{s.status}</span>
+                       <div className="flex gap-4">
+                          <div className="relative">
+                            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center font-black text-gray-900 border border-gray-100 uppercase">
+                               {s.name.charAt(0)}
+                            </div>
+                            <span className="absolute -top-2 -left-2 w-5 h-5 bg-red-600 text-white text-[8px] flex items-center justify-center rounded-full font-black border-2 border-white">{i + 1}</span>
+                          </div>
+                          <div>
+                             <p className="font-black text-sm uppercase tracking-tight">{s.name}</p>
+                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID: {s.id.slice(0, 8)}</p>
+                          </div>
+                       </div>
                     </div>
-                    
-                    <div className="flex items-center justify-between gap-6 px-1">
-                      <div className="flex-1">
-                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-red-600 rounded-full" style={{ width: `${s.progress}%` }}></div>
-                        </div>
-                        <p className="text-[9px] font-black text-gray-400 mt-1 uppercase tracking-widest">{s.progress}% Completion</p>
-                      </div>
-                      <div className="flex gap-2">
-                         <button onClick={() => handleEditStudent(s)} className="p-3 bg-gray-50 text-blue-600 rounded-2xl active:bg-blue-100 transition-all shadow-sm border border-gray-100"><EditIcon size={16} /></button>
-                         <button onClick={() => handleDeleteStudent(s.id)} className="p-3 bg-gray-50 text-red-600 rounded-2xl active:bg-red-100 transition-all shadow-sm border border-gray-100"><TrashIcon size={16} /></button>
-                      </div>
+                    <div className="flex gap-2">
+                       <button onClick={() => setSelectedStudent(s)} className="flex-1 py-3 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Preview Details</button>
+                       <button onClick={() => handleDeleteStudent(s.id)} className="p-3 bg-red-50 text-red-600 rounded-xl active:bg-red-600 active:text-white transition-all shadow-sm border border-red-100"><TrashIcon size={16} /></button>
                     </div>
                   </div>
                 ))}
@@ -586,14 +778,14 @@ const AdminDashboard = () => {
             <div className="space-y-10">
               <div className="flex items-center justify-between">
                 <div>
-                   <h2 className="text-3xl font-black tracking-tighter uppercase font-display">Notices & Broadcasts</h2>
+                   <h2 className="text-3xl font-black tracking-tighter uppercase font-display">System Announcements</h2>
                    <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em]">Communication Center</p>
                 </div>
-                <button onClick={handleAddAnnouncement} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm">Post New Alert</button>
+                <button onClick={handleAddAnnouncement} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm">Post New Announcement</button>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                 {dbAnnouncements.map(ann => (
+                 {announcements.map(ann => (
                     <div key={ann.id} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 flex flex-col group hover:border-red-500 transition-all duration-500">
                        <div className="flex justify-between items-start mb-6">
                           <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -607,7 +799,7 @@ const AdminDashboard = () => {
                        <h3 className="text-xl font-black mb-4 group-hover:text-red-600 transition-colors uppercase leading-[0.9]">{ann.title}</h3>
                        <p className="text-gray-400 text-sm font-medium leading-relaxed mb-8">{ann.message}</p>
                        <div className="mt-auto pt-6 border-t border-gray-50 text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                          {new Date(ann.created_at).toLocaleDateString()} @ {new Date(ann.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(ann.date).toLocaleDateString()} @ {new Date(ann.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                        </div>
                     </div>
                  ))}
@@ -615,31 +807,96 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {activeSidebarItem === 'schedule' && (
+          {activeSidebarItem === 'subjects' && (
             <div className="space-y-10">
                <div className="flex items-center justify-between">
-                  <h2 className="text-3xl font-black uppercase tracking-tighter">Academic Schedules</h2>
-                  <button onClick={() => toast.error('Schedule Creator coming in next sync!')} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm">Create New Slot</button>
+                  <div>
+                    <h2 className="text-3xl font-black uppercase tracking-tighter">Academic Strands</h2>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Configure available Subjects for Enrollment</p>
+                  </div>
+                  <button 
+                    onClick={() => setPromptModal({
+                      title: 'Create New Strand',
+                      fields: [
+                        { name: 'name', label: 'Strand Name', placeholder: 'e.g. Humanities and Social Sciences (HUMSS)', type: 'text' }
+                      ],
+                      onSubmit: async (data) => {
+                        if (!data.name) return toast.error('Strand name is required');
+                        if (subjects.some(s => s.name.toLowerCase() === data.name.toLowerCase())) {
+                          return toast.error('A strand with this name already exists');
+                        }
+                        setIsPromptSubmitting(true);
+                        try {
+                          await addSubject({
+                            name: data.name,
+                            capacity: 25, // Default capacity
+                            students: 0,
+                            schedule: 'To be announced'
+                          });
+                          toast.success('New academic strand created!');
+                          setPromptModal(null);
+                        } catch (err) {
+                          toast.error('Failed to create strand');
+                        } finally {
+                          setIsPromptSubmitting(false);
+                        }
+                      }
+                    })}
+                    className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm"
+                  >
+                    Add Academic Strand
+                  </button>
                </div>
                
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {schedules.map(sch => (
-                     <div key={sch.id} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 group hover:scale-[1.02] transition-all duration-300">
-                        <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                           <CalendarIcon size={24} />
+                  {subjects.map(s => (
+                     <div key={s.id} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 group hover:border-red-600 transition-all duration-300">
+                        <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                           <BookOpenIcon size={24} />
                         </div>
-                        <h4 className="text-[10px] font-black text-red-600 uppercase tracking-[0.2em] mb-1">{sch.subjects?.name || 'Assigned Strand'}</h4>
-                        <h3 className="text-2xl font-black text-gray-900 mb-6 font-display leading-none">{sch.day_of_week}</h3>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Official Strand</p>
+                        <h3 className="text-2xl font-black text-gray-900 mb-6 font-display leading-none uppercase tracking-tight line-clamp-2 min-h-[3rem]">{s.name}</h3>
                         
-                        <div className="space-y-4">
-                           <div className="flex items-center gap-4 text-sm font-bold text-gray-600 bg-gray-50 p-3 rounded-2xl">
-                              <ClockIcon className="text-red-600 w-4 h-4" />
-                              <span>{sch.time_start} - {sch.time_end}</span>
-                           </div>
-                           <div className="flex items-center gap-4 text-sm font-bold text-gray-600 bg-gray-50 p-3 rounded-2xl">
-                              <MapPinIcon className="text-red-600 w-4 h-4" />
-                              <span className="truncate">{sch.location}</span>
-                           </div>
+                        <div className="flex gap-3 pt-6 border-t border-gray-50">
+                           <button 
+                             onClick={() => setPromptModal({
+                               title: 'Modify Strand',
+                               fields: [
+                                 { name: 'name', label: 'Strand Name', defaultValue: s.name, type: 'text' }
+                               ],
+                               onSubmit: async (data) => {
+                                 setIsPromptSubmitting(true);
+                                 try {
+                                   const finalName = data.name || s.name;
+                                   
+                                   await updateSubject(s.id, {
+                                     name: finalName,
+                                     capacity: s.capacity // Keep existing capacity
+                                   });
+                                   toast.success('Strand updated successfully');
+                                   setPromptModal(null);
+                                 } catch (err) {
+                                   toast.error('Failed to update strand');
+                                 } finally {
+                                   setIsPromptSubmitting(false);
+                                 }
+                               }
+                             })}
+                             className="flex-1 py-3 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all"
+                           >
+                             Manage
+                           </button>
+                           <button 
+                             onClick={() => {
+                               if(window.confirm(`Remove "${s.name}"? This will disable this strand for new enrollments.`)) {
+                                 deleteSubject(s.id);
+                                 toast.success('Strand removed from registry');
+                               }
+                             }}
+                             className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                           >
+                             <TrashIcon size={16} />
+                           </button>
                         </div>
                      </div>
                   ))}
@@ -653,6 +910,57 @@ const AdminDashboard = () => {
                   <h2 className="text-2xl font-black font-display uppercase tracking-tight">Gradebook Registry</h2>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Official Module Assessment Records</p>
                </div>
+                <div className="px-10 py-6 border-b border-gray-50 bg-gray-50/30 flex justify-end">
+                  <button 
+                    onClick={() => setPromptModal({
+                      title: 'Add Grade',
+                      fields: [
+                        { 
+                          name: 'user_id', 
+                          label: 'Enrolled Student', 
+                          type: 'select', 
+                          placeholder: 'Select approved learner',
+                          options: students
+                            .filter(s => s.status === 'enrolled')
+                            .map(s => ({ label: s.name, value: s.id }))
+                        },
+                        { name: 'module_name', label: 'Module/Subject Name', placeholder: 'e.g. Communication Skills I', type: 'text' },
+                        { name: 'score', label: 'Score Earned', placeholder: 'e.g. 85', type: 'number' },
+                        { name: 'max_score', label: 'Minimum Score', placeholder: 'e.g. 100', type: 'number' },
+                        { 
+                          name: 'status', 
+                          label: 'Result Status', 
+                          type: 'select', 
+                          defaultValue: 'passed',
+                          options: [
+                            { label: 'Passed', value: 'passed' },
+                            { label: 'Failed', value: 'failed' }
+                          ]
+                        }
+                      ],
+                      onSubmit: async (data) => {
+                        setIsPromptSubmitting(true);
+                        try {
+                          // Important Fix: Using addGrade from useDataContext directly
+                          await addGrade({
+                            ...data,
+                            score: Number(data.score),
+                            max_score: Number(data.max_score)
+                          });
+                          toast.success('Grade recorded successfully!');
+                          setPromptModal(null);
+                        } catch (err: any) {
+                          toast.error(err.message || 'Failed to add grade');
+                        } finally {
+                          setIsPromptSubmitting(false);
+                        }
+                      }
+                    })}
+                    className="px-6 py-2 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    <PlusCircleIcon size={14} /> Add Grade
+                  </button>
+               </div>
                <div className="p-10 overflow-x-auto">
                  <table className="w-full min-w-[1000px]">
                      <thead>
@@ -661,13 +969,17 @@ const AdminDashboard = () => {
                            <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Module Name</th>
                            <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Score</th>
                            <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Result</th>
+                           <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
                         </tr>
                      </thead>
                      <tbody className="divide-y divide-gray-50">
-                        {assessments.map(ass => (
+                        {grades.filter(g => {
+                           const student = students.find(s => s.id === g.user_id);
+                           return student?.status === 'enrolled';
+                        }).map(ass => (
                            <tr key={ass.id}>
                               <td className="px-6 py-8">
-                                 <p className="text-sm font-bold text-gray-900">{ass.enrollments?.personal_info?.firstName} {ass.enrollments?.personal_info?.lastName}</p>
+                                 <p className="text-sm font-bold text-gray-900">{ass.student_name}</p>
                                  <p className="text-[10px] font-bold text-gray-400 uppercase">Registered Learner</p>
                               </td>
                               <td className="px-6 py-8 text-sm font-bold text-gray-500 uppercase">{ass.module_name}</td>
@@ -680,6 +992,35 @@ const AdminDashboard = () => {
                                     ass.status === 'passed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                  }`}>{ass.status}</span>
                               </td>
+                              <td className="px-6 py-8 text-right">
+                                 <div className="flex justify-end gap-2">
+                                    <button 
+                                      onClick={() => setPromptModal({
+                                        title: 'Edit Module Grade',
+                                        fields: [
+                                          { name: 'module_name', label: 'Module Name', placeholder: ass.module_name, type: 'text' },
+                                          { name: 'score', label: 'Score', placeholder: ass.score.toString(), type: 'number' },
+                                          { name: 'max_score', label: 'Max Score', placeholder: ass.max_score.toString(), type: 'number' },
+                                          { name: 'status', label: 'Status', placeholder: ass.status, type: 'text' }
+                                        ],
+                                        onSubmit: (data) => handleGradeSubmit({ ...data, id: ass.id })
+                                      })}
+                                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                    >
+                                      <EditIcon size={16} />
+                                    </button>
+                                    <button 
+                                      onClick={() => {
+                                        if (window.confirm('Remove this grade record?')) {
+                                          handleDeleteGrade(ass.id);
+                                        }
+                                      }}
+                                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                    >
+                                      <TrashIcon size={16} />
+                                    </button>
+                                 </div>
+                              </td>
                            </tr>
                         ))}
                      </tbody>
@@ -690,34 +1031,17 @@ const AdminDashboard = () => {
 
           {activeSidebarItem === 'analytics' && (
             <div className="space-y-10">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                  <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-8">Strand Distribution</h3>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={subjects.map(s => ({ name: s.name, value: students.filter(st => st.subjects === s.name).length }))}
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {subjects.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={['#ef4444', '#3b82f6', '#10b981', '#f59e0b'][index % 4]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 gap-8">
                 <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                   <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-8">Enrollment Status</h3>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={['Active', 'Pending', 'Graduated'].map(s => ({ name: s, count: students.filter(st => st.status === s).length }))}>
+                      <BarChart data={[
+                        { name: 'Enrolled', key: 'enrolled' },
+                        { name: 'Pending', key: 'pending' },
+                        { name: 'In Review', key: 'review' },
+                        { name: 'Rejected', key: 'rejected' }
+                      ].map(s => ({ name: s.name, count: students.filter(st => st.status === s.key).length }))}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
@@ -790,6 +1114,22 @@ const AdminDashboard = () => {
                     </div>
                     <p className="text-gray-500 text-sm mb-6 bg-gray-50 p-4 rounded-2xl font-medium">{inq.message}</p>
                     <div className="flex justify-end gap-3">
+                      <button 
+                        onClick={async () => {
+                          if (window.confirm('Archive this inquiry? It will be removed from the active list.')) {
+                            const { error } = await supabase.from('inquiries').delete().eq('id', inq.id);
+                            if (!error) {
+                              toast.success('Inquiry archived');
+                              fetchDashboardSpecificData();
+                            } else {
+                              toast.error('Could not archive inquiry');
+                            }
+                          }
+                        }}
+                        className="p-2 text-gray-400 hover:text-red-600 transition-all"
+                      >
+                        <TrashIcon size={16} />
+                      </button>
                       <button onClick={() => {
                         setPromptModal({
                           title: 'Inquiry Response',
@@ -829,49 +1169,152 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {activeSidebarItem === 'modules' && (
+
+          {activeSidebarItem === 'users' && (
             <div className="space-y-10">
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-black uppercase tracking-tighter text-gray-900">Module Repository</h2>
-                <button onClick={() => {
-                  setPromptModal({
-                    title: 'New Learning Module',
-                    fields: [
-                      { name: 'title', label: 'Module Title', placeholder: 'e.g. LS1: Communication Skills' },
-                      { name: 'url', label: 'File URL', placeholder: 'Paste Supabase/Google Drive link' }
-                    ],
-                    onSubmit: async (data) => {
-                      if (!data.title || !data.url) return;
-                      setIsPromptSubmitting(true);
-                      const { error } = await supabase.from('learning_modules').insert({ title: data.title, file_url: data.url });
-                      if (!error) {
-                        toast.success('Module added!');
-                        fetchDashboardSpecificData();
-                      } else {
-                        toast.error('Failed to upload module');
-                      }
-                      setIsPromptSubmitting(false);
-                      setPromptModal(null);
-                    }
-                  });
-                }} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm uppercase tracking-widest">Upload Module</button>
+                <h2 className="text-3xl font-black uppercase tracking-tighter text-gray-900">Manage Users</h2>
+                <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 rounded-2xl border border-gray-100 font-bold text-xs uppercase tracking-widest text-gray-500">
+                   <ShieldIcon size={14} className="text-red-600" /> Administrative Access
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {modules.map(mod => (
-                  <div key={mod.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm relative group overflow-hidden">
-                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 font-black italic">
-                      PDF
+              
+              <div className="grid grid-cols-1 gap-4">
+                {profiles.filter(p => {
+                  // Only show admins and registered students (enrolled, blocked, or graduated)
+                  if (p.role === 'admin') return true;
+                  const student = students.find(s => s.fullData?.user_id === p.id);
+                  return !!student; // Show any student that exists in our registry
+                }).map(profile => (
+                  <div key={profile.id} className="bg-white p-8 rounded-[32px] border border-gray-100 flex items-center justify-between shadow-sm hover:shadow-xl hover:shadow-gray-200/20 transition-all group">
+                    <div className="flex items-center gap-8">
+                       <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center font-black text-2xl ${
+                         profile.is_blocked ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-900'
+                       }`}>
+                         {(profile.email || 'U').charAt(0).toUpperCase()}
+                       </div>
+                       <div>
+                          <div className="flex items-center gap-3 mb-1">
+                             <h4 className="text-lg font-black text-gray-900 uppercase tracking-tighter">{profile.email || 'Anonymous User'}</h4>
+                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                               profile.role === 'admin' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-gray-100 text-gray-500'
+                             }`}>
+                               {profile.role}
+                             </span>
+                             {profile.is_blocked && (
+                               <span className="px-3 py-1 bg-red-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse shadow-lg shadow-red-600/20 border-2 border-white">
+                                 BLOCKED
+                               </span>
+                             )}
+                          </div>
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">UID: {profile.id}</p>
+                           {profile.is_blocked && profile.block_reason && (
+                             <div className="mt-4 p-4 bg-red-50 rounded-2xl border border-red-100 max-w-md">
+                                <p className="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1.5 leading-none">Restriction Reason:</p>
+                                <p className="text-[11px] font-bold text-red-900 leading-relaxed italic line-clamp-2">"{profile.block_reason}"</p>
+                             </div>
+                           )}
+                       </div>
                     </div>
-                    <h3 className="font-black text-gray-900 mb-2 truncate uppercase text-sm">{mod.title}</h3>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-6">{mod.subjects?.name || 'General Strand'}</p>
-                    <div className="flex gap-2">
-                       <button className="flex-1 py-2 bg-gray-50 text-gray-400 font-bold rounded-xl text-[10px] uppercase hover:bg-gray-100 transition-all">Edit</button>
-                       <button onClick={async () => {
-                         if(confirm('Archive module?')) {
-                           await supabase.from('learning_modules').delete().eq('id', mod.id);
-                           fetchAllData();
-                         }
-                       }} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all"><TrashIcon size={14} /></button>
+                    
+                    <div className="flex items-center gap-4">
+                      {/* NEW: Edit functionality for Profiles */}
+                      <button 
+                        onClick={() => {
+                          setPromptModal({
+                            title: 'Edit Access Information',
+                            fields: [
+                              { name: 'email', label: 'Login Email Address', type: 'email', defaultValue: profile.email },
+                              { 
+                                name: 'role', 
+                                label: 'User Role', 
+                                type: 'select', 
+                                defaultValue: profile.role,
+                                options: [
+                                  { label: 'Student', value: 'student' },
+                                  { label: 'Administrator', value: 'admin' }
+                                ]
+                              }
+                            ],
+                            onSubmit: async (data) => {
+                              setIsPromptSubmitting(true);
+                              try {
+                                await updateProfile(profile.id, data);
+                                toast.success('User updated successfully');
+                                setPromptModal(null);
+                              } catch (err: any) {
+                                toast.error(err.message || 'Update failed');
+                              } finally {
+                                setIsPromptSubmitting(false);
+                              }
+                            }
+                          });
+                        }}
+                        className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-600 transition-all"
+                      >
+                        <EditIcon size={18} />
+                      </button>
+
+                      {profile.is_blocked ? (
+                        <button 
+                          onClick={() => {
+                            if(window.confirm(`Unblock ${profile.email}? Account will be restored immediately.`)) unblockUser(profile.id);
+                          }}
+                          className="px-6 py-3 bg-green-50 text-green-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 hover:text-white transition-all shadow-sm flex items-center gap-2"
+                        >
+                          <CheckCircleIcon size={14} /> Restore Access
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            setPromptModal({
+                              title: 'Restrict Account',
+                              fields: [
+                                { 
+                                  name: 'reason', 
+                                  label: 'Primary Violation', 
+                                  type: 'select',
+                                  placeholder: 'Choose a reason...',
+                                  options: [
+                                    { label: 'Violation of Terms of Service', value: 'Violation of Terms of Service' },
+                                    { label: 'Suspicious Login Activity', value: 'Suspicious Login Activity' },
+                                    { label: 'Incomplete Requirements / False Info', value: 'Incomplete Requirements / False Info' },
+                                    { label: 'Unprofessional Conduct', value: 'Unprofessional Conduct' },
+                                    { label: 'System Maintenance / Audit', value: 'System Maintenance / Audit' },
+                                    { label: 'Other (Manual Entry)', value: 'other' }
+                                  ]
+                                },
+                                { 
+                                  name: 'customReason', 
+                                  label: 'Additional Notes / Manual Reason', 
+                                  type: 'textarea', 
+                                  placeholder: 'Provide specific details for the restriction...' 
+                                }
+                              ],
+                              onSubmit: (data) => {
+                                const finalReason = data.reason === 'other' ? data.customReason : (data.reason + (data.customReason ? `: ${data.customReason}` : ''));
+                                if(!finalReason) return toast.error('A reason is required');
+                                blockUser(profile.id, finalReason);
+                                setPromptModal(null);
+                              }
+                            });
+                          }}
+                          className="px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-red-600/20"
+                        >
+                          Suspend User
+                        </button>
+                      )}
+                      
+                      <button 
+                        onClick={() => {
+                          if(confirm('PERMANENTLY DELETE ACCOUNT? This will erase all enrollment data linked to this user.')) {
+                            deleteUserAccount(profile.id);
+                          }
+                        }}
+                        className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:bg-red-600 hover:text-white transition-all"
+                      >
+                        <TrashIcon size={18} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -883,7 +1326,7 @@ const AdminDashboard = () => {
             <div className="space-y-10">
                <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-3xl font-black uppercase tracking-tighter">Systems Audit</h2>
+                    <h2 className="text-3xl font-black uppercase tracking-tighter text-gray-900">Systems Audit</h2>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] font-medium">Internal Security Activity Log</p>
                   </div>
                   <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-900 border border-gray-100">
@@ -903,26 +1346,22 @@ const AdminDashboard = () => {
                            <div>
                               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none px-2 py-0.5 bg-gray-50 rounded inline-block">Event Type: {log.target_type}</p>
                               <h4 className="text-sm font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tabular-nums">Action: {log.action?.replace(/_/g, ' ') || 'SYSTEM_EVENT'}</h4>
-                              <p className="text-xs font-medium text-gray-500 mt-1">Target ID: <span className="font-bold text-gray-900">{log.target_id || 'Global'}</span></p>
+                              <p className="text-[10px] font-medium text-gray-400 mt-1 uppercase tracking-widest">Target: <span className="font-bold text-gray-900">{log.target_id || 'Global'}</span></p>
                            </div>
                         </div>
                         <div className="text-right">
                            <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</p>
-                           <p className="text-lg font-black text-gray-300 group-hover:text-red-600 transition-colors tabular-nums">
+                           <p className="text-lg font-black text-gray-300 group-hover:text-red-600 transition-colors tabular-nums leading-tight">
                              {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                            </p>
                         </div>
                      </div>
                   ))}
                   
-                  {hasMoreLogs && (
-                    <div className="pt-10 text-center">
-                      <button 
-                        onClick={() => fetchLogs(logPage + 1)}
-                        className="px-12 py-4 bg-gray-50 text-gray-900 font-black rounded-2xl hover:bg-gray-100 transition-all text-[11px] uppercase tracking-widest border border-gray-100 shadow-sm"
-                      >
-                        Load More Logs
-                      </button>
+                  {auditLogs.length === 0 && (
+                    <div className="p-20 text-center bg-white rounded-[48px] border border-dashed border-gray-200">
+                      <HistoryIcon size={48} className="mx-auto text-gray-200 mb-6" />
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No activities recorded yet</p>
                     </div>
                   )}
                </div>
@@ -930,78 +1369,14 @@ const AdminDashboard = () => {
           )}
 
           {/* Form Modals */}
-          {showAnnounceForm && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-white p-10 rounded-[48px] shadow-2xl w-full max-w-xl border border-gray-100">
-                <h2 className="text-3xl font-black mb-10 font-display uppercase tracking-tighter">Broadcast Center</h2>
-                <div className="space-y-8">
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Notice Title</label>
-                    <input 
-                      className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-4 focus:ring-red-600/10 transition-all font-black" 
-                      defaultValue={editAnnounce?.title}
-                      id="ann-title"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Priority</label>
-                    <div className="grid grid-cols-3 gap-3">
-                       {['low', 'medium', 'high'].map(p => (
-                         <button 
-                           key={p} 
-                           type="button"
-                           onClick={() => {(document.getElementById('ann-priority') as any).value = p}}
-                           className="py-3 px-4 bg-gray-50 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all focus:bg-red-600 focus:text-white"
-                         >{p}</button>
-                       ))}
-                       <input type="hidden" id="ann-priority" defaultValue={editAnnounce?.priority || 'medium'} />
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Message Body</label>
-                    <textarea 
-                      rows={6} 
-                      className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-4 focus:ring-red-600/10 transition-all text-sm font-medium" 
-                      defaultValue={editAnnounce?.message}
-                      id="ann-msg"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-6 mt-12 pt-8 border-t border-gray-50">
-                  <button className="text-sm font-black text-gray-500 hover:text-gray-900 transition-colors uppercase tracking-widest" onClick={() => setShowAnnounceForm(false)}>Discard</button>
-                  <button 
-                    className="px-10 py-4 bg-red-600 text-white font-black rounded-3xl shadow-xl shadow-red-600/20 hover:scale-105 active:scale-95 transition-all text-sm uppercase tracking-widest"
-                    onClick={() => handleAnnounceSubmit({
-                      id: editAnnounce?.id,
-                      title: (document.getElementById('ann-title') as any).value,
-                      message: (document.getElementById('ann-msg') as any).value,
-                      priority: (document.getElementById('ann-priority') as any).value
-                    })}
-                  >
-                    Publish News
-                  </button>
-                </div>
-              </div>
-            </div>
+
+          {selectedStudent && (
+            <StudentDetailModal 
+              student={selectedStudent} 
+              onClose={() => setSelectedStudent(null)} 
+            />
           )}
 
-           {showStudentForm && <StudentModal initial={editStudent} onSubmit={async (s: any) => { 
-            if(editStudent) {
-              updateStudent(editStudent.id, s);
-              if (s.status !== editStudent.status) {
-                // Persistent Notification
-                await supabase.from('notifications').insert({
-                  user_id: editStudent.id, // Assuming student.id is their user_id
-                  message: `Your application status has been updated to ${s.status}.`,
-                  is_read: false
-                });
-                await sendStatusEmail(s.name, s.email, s.status);
-              }
-            } else addStudent(s); 
-            setShowStudentForm(false); 
-          }} onCancel={() => setShowStudentForm(false)} />}
-          {showSubjectForm && <SubjectModal initial={editSubject} onSubmit={(s) => { if(editSubject) updateSubject(editSubject.id, s); else addSubject(s); setShowSubjectForm(false); }} onCancel={() => setShowSubjectForm(false)} />}
-          
           {promptModal && (
             <PromptModal 
               {...promptModal} 
@@ -1015,59 +1390,185 @@ const AdminDashboard = () => {
   );
 };
 
-// Internal Modal Components for Learners/Strands
-const StudentModal = ({ initial, onSubmit, onCancel }: any) => {
-  const [form, setForm] = useState(initial || { id: '', name: '', email: '', status: 'Active', progress: 0 });
+const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: () => void }) => {
+  const data = student.fullData || {};
+  const personal = data.personal_info || {};
+  const education = data.educational_background || {};
+  const preferences = data.learning_preferences || {};
+  const subjects = data.subjects || [];
+
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white p-10 rounded-[48px] shadow-2xl w-full max-w-xl">
-        <h2 className="text-2xl font-black mb-8 uppercase tracking-tighter">Learner Identity Card</h2>
-        <div className="grid grid-cols-2 gap-6">
-          <div className="col-span-2 space-y-2">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Full Name</label>
-            <input className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-red-600 font-bold" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Unique ID</label>
-            <input className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-red-600 font-bold tabular-nums" value={form.id} onChange={e => setForm({...form, id: e.target.value})} disabled={!!initial} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Email Address</label>
-            <input className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-red-600 font-bold" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
-          </div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center z-[100] p-4 lg:p-10">
+      <motion.div 
+        initial={{ opacity: 0, y: 100, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 100, scale: 0.9 }}
+        className="bg-[#fcfcfc] w-full max-w-5xl h-full max-h-[95vh] rounded-[48px] overflow-hidden flex flex-col shadow-2xl relative border border-white/20"
+      >
+        {/* Modal Header */}
+        <div className="bg-red-600 p-8 md:p-12 text-white flex justify-between items-start relative overflow-hidden shrink-0">
+           {/* Decorative background elements */}
+           <div className="absolute top-0 right-0 w-64 h-64 bg-red-500 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
+           <div className="absolute bottom-0 left-0 w-48 h-48 bg-red-700 rounded-full -ml-24 -mb-24 blur-2xl opacity-30" />
+           
+           <div className="relative z-10">
+              <span className="px-5 py-2 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.3em] border border-white/20 mb-4 inline-block">Official Application Preview</span>
+              <h2 className="text-4xl md:text-5xl font-black font-display uppercase tracking-tighter leading-[0.9]">
+                {personal.firstName} {personal.middleName ? `${personal.middleName} ` : ''}{personal.lastName}
+              </h2>
+              <div className="flex flex-wrap items-center gap-4 md:gap-6 mt-6">
+                 <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                       <CheckCircleIcon size={14} />
+                    </div>
+                    <span className="text-[10px] md:text-xs font-black uppercase tracking-widest opacity-80">Application ID: {student.id.slice(0, 12)}</span>
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                       <CalendarIcon size={14} />
+                    </div>
+                    <span className="text-[10px] md:text-xs font-black uppercase tracking-widest opacity-80">Submitted: {new Date(student.enrollmentDate).toLocaleDateString()}</span>
+                 </div>
+              </div>
+           </div>
+           
+           <button onClick={onClose} className="p-4 bg-white/10 backdrop-blur-md text-white rounded-[20px] hover:bg-white hover:text-red-600 transition-all border border-white/20 relative z-10 active:scale-90">
+             <XIcon size={20} strokeWidth={3} />
+           </button>
         </div>
-        <div className="flex justify-end gap-6 mt-12 pt-8 border-t border-gray-50">
-          <button className="text-sm font-black text-gray-400 uppercase tracking-widest" onClick={onCancel}>Cancel</button>
-          <button className="px-10 py-4 bg-red-600 text-white font-black rounded-3xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm uppercase tracking-widest" onClick={() => onSubmit(form)}>Save Learner</button>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar space-y-12 md:space-y-16">
+          
+          {/* Step 1: Personal Information */}
+          <section className="space-y-8">
+             <div className="flex items-center gap-4">
+                <div className="h-px flex-1 bg-gray-100" />
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] shrink-0 px-8 py-2 bg-gray-50 rounded-full">Step 1: Personal Identity</h3>
+                <div className="h-px flex-1 bg-gray-100" />
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-10 gap-y-8">
+                <DataField label="First Name" value={personal.firstName} />
+                <DataField label="Middle Name" value={personal.middleName} />
+                <DataField label="Last Name" value={personal.lastName} />
+                <DataField label="Gender" value={personal.gender} />
+                <DataField label="Birthdate" value={personal.birthdate} />
+                <DataField label="LRN (Learner Reference #)" value={personal.lrn} highlight />
+                <div className="md:col-span-2">
+                  <DataField label="Complete Address" value={personal.address} />
+                </div>
+                <DataField label="Street / Purok" value={personal.addressStreet} />
+                <DataField label="Barangay" value={personal.addressBarangay} />
+                <DataField label="City / Municipality" value={personal.addressCity} />
+                <DataField label="Province" value={personal.addressProvince} />
+                <DataField label="ZIP Code" value={personal.addressZip} />
+                <DataField label="Email Address" value={personal.email} highlight />
+                <DataField label="Phone Number" value={personal.phone} highlight />
+             </div>
+          </section>
+
+          {/* Step 2: Educational Background */}
+          <section className="space-y-8">
+             <div className="flex items-center gap-4">
+                <div className="h-px flex-1 bg-gray-100" />
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] shrink-0 px-8 py-2 bg-gray-50 rounded-full">Step 2: Educational History</h3>
+                <div className="h-px flex-1 bg-gray-100" />
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10">
+                <DataField label="Last Grade Level Completed" value={education.lastGradeLevel} />
+                <DataField label="Last School Attended" value={education.lastSchoolAttended} />
+                <DataField label="Year Last Attended" value={education.yearLastAttended} />
+                <div className="md:col-span-2">
+                   <DataField label="Reason for Stopping" value={education.reason} />
+                </div>
+             </div>
+          </section>
+
+          {/* Step 3: Learning Preferences */}
+          <section className="space-y-8">
+             <div className="flex items-center gap-4">
+                <div className="h-px flex-1 bg-gray-100" />
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] shrink-0 px-8 py-2 bg-gray-50 rounded-full">Step 3: Learning Preferences</h3>
+                <div className="h-px flex-1 bg-gray-100" />
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                <DataField label="Preferred Learning Style" value={preferences.learningStyle} />
+                <DataField label="Preferred Schedule" value={preferences.preferredSchedule?.replace(/_/g, ' ').toUpperCase()} />
+                <DataField label="Preferred Language" value={preferences.preferredLanguage} />
+                <div className="md:col-span-3">
+                   <DataField label="Special Accommodations" value={preferences.accommodation} />
+                </div>
+             </div>
+          </section>
+
+          {/* Step 4: Available Subjects (Selected) */}
+          <section className="space-y-8">
+             <div className="flex items-center gap-4">
+                <div className="h-px flex-1 bg-gray-100" />
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] shrink-0 px-8 py-2 bg-gray-50 rounded-full">Step 4: Selected Subjects</h3>
+                <div className="h-px flex-1 bg-gray-100" />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {subjects.map((s: any) => (
+                  <div key={s.id} className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center text-white">
+                      <BookOpenIcon size={14} />
+                    </div>
+                    <span className="text-[10px] font-black text-red-700 uppercase tracking-tight">{s.name}</span>
+                  </div>
+                ))}
+                {subjects.length === 0 && (
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">No subjects selected</p>
+                )}
+             </div>
+          </section>
+
+          {/* Step 5: Final Review Status */}
+          <section className="space-y-8">
+             <div className="flex items-center gap-4">
+                <div className="h-px flex-1 bg-gray-100" />
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] shrink-0 px-8 py-2 bg-gray-50 rounded-full">Step 5: Final Review</h3>
+                <div className="h-px flex-1 bg-gray-100" />
+             </div>
+             <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-6">
+                   <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shadow-lg ${
+                      student.status === 'enrolled' ? 'bg-green-600 text-white shadow-green-600/20' : 
+                      student.status === 'rejected' ? 'bg-red-600 text-white shadow-red-600/20' :
+                      'bg-amber-500 text-white shadow-amber-600/20'
+                   }`}>
+                      {student.status === 'enrolled' ? <CheckCircleIcon size={32} /> : 
+                       student.status === 'rejected' ? <XIcon size={32} /> : 
+                       <ClockIcon size={32} />}
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Current Application State</p>
+                      <h4 className="text-2xl font-black text-gray-900 uppercase tracking-tighter leading-none">{student.status}</h4>
+                   </div>
+                </div>
+                <div className="flex gap-4 w-full md:w-auto">
+                   <button onClick={onClose} className="flex-1 md:flex-none px-8 py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all">Close Review</button>
+                </div>
+             </div>
+          </section>
         </div>
-      </div>
+
+        {/* Action Footer */}
+        <div className="p-8 md:p-10 bg-white border-t border-gray-50 flex justify-center md:justify-end items-center">
+            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">ALS Hamtic Digital Intake Portal v1.0</p>
+        </div>
+      </motion.div>
     </div>
   );
 };
 
-const SubjectModal = ({ initial, onSubmit, onCancel }: any) => {
-  const [form, setForm] = useState(initial || { id: '', name: '', capacity: 25 });
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white p-10 rounded-[48px] shadow-2xl w-full max-w-md">
-        <h2 className="text-2xl font-black mb-8 uppercase tracking-tighter">Strand Config</h2>
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Strand Name</label>
-            <input className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-red-600 font-bold" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Capacity</label>
-            <input type="number" className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-red-600 font-bold" value={form.capacity} onChange={e => setForm({...form, capacity: Number(e.target.value)})} />
-          </div>
-        </div>
-        <div className="flex justify-end gap-6 mt-12 pt-8 border-t border-gray-50">
-          <button className="text-sm font-black text-gray-400 uppercase tracking-widest" onClick={onCancel}>Cancel</button>
-          <button className="px-10 py-4 bg-blue-600 text-white font-black rounded-3xl shadow-xl shadow-blue-600/20 active:scale-95 transition-all text-sm uppercase tracking-widest" onClick={() => onSubmit(form)}>Update Strand</button>
-        </div>
-      </div>
-    </div>
-  );
-};
+const DataField = ({ label, value, highlight = false }: any) => (
+  <div className="space-y-2">
+    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
+    <p className={`text-md font-black uppercase tracking-tight ${highlight ? 'text-red-600' : 'text-gray-900'}`}>
+      {value || <span className="opacity-20 italic">Not Provided</span>}
+    </p>
+  </div>
+);
 
 export default AdminDashboard;

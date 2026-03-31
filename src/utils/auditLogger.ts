@@ -10,8 +10,16 @@ export type AuditAction =
   | 'add_subject'
   | 'edit_subject'
   | 'delete_subject'
-  | 'reply_inquiry'
-  | 'upload_module';
+  | 'reply_inquiry' 
+  | 'upload_module'
+  | 'block_user'
+  | 'unblock_user'
+  | 'delete_account'
+  | 'update_user_profile'
+  | 'edit_enrollment'
+  | 'add_grade'
+  | 'update_grade'
+  | 'delete_grade';
 
 export const logAuditAction = async (
   adminId: string, 
