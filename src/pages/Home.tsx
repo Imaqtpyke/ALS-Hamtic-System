@@ -21,16 +21,15 @@ const Home = () => {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="relative z-10 md:col-span-3 pt-6 md:pt-0"
             >
-              <div className="inline-block px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-sm font-semibold text-[#E2231A] mb-6 border border-white/10">
-                Official DepEd Hamtic ALS Portal 2024
+              <div className="inline-block px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-sm font-semibold text-red-300 mb-6 border border-white/10">
+                Official DepEd Hamtic ALS Portal
               </div>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.15] font-display">
                 Your Future Begins with the<br />
-                <span className="text-[#E2231A]">Alternative Learning System</span>
+                <span className="text-red-400">Alternative Learning System</span>
               </h1>
               <p className="mt-8 text-xl text-blue-50/90 max-w-2xl leading-relaxed">
-                Empowering every learner in Hamtic, Antique with flexible, 
-                high-quality education. Enroll online today and unlock new opportunities.
+                Anyone in Hamtic, Antique can now sign up for ALS online — no office visit needed.
               </p>
               <div className="mt-12 flex flex-col sm:flex-row gap-5">
                 <Link
@@ -79,10 +78,10 @@ const Home = () => {
             className="text-center max-w-3xl mx-auto mb-16"
           >
             <span className="text-[#0038A8] font-bold tracking-widest uppercase text-xs">
-              Key Features
+              What You Can Do Here
             </span>
             <h2 className="text-4xl font-black text-gray-900 mt-3 font-display">
-              A Direct Path to Enrollment
+              Simple Steps to Get Started
             </h2>
             <div className="h-1.5 w-20 bg-[#E2231A] mx-auto mt-6 rounded-full"></div>
           </motion.div>
@@ -94,24 +93,24 @@ const Home = () => {
             description: 'Apply from any location. Our structured form ensures your data is captured accurately.'
           }, {
             icon: <CheckCircleIcon className="h-6 w-6 text-[#0038A8]" />,
-            title: 'Auto-Save Progress',
-            description: 'Life is busy. Start your application today and finish it whenever you have time.'
+            title: 'Direct Communication',
+            description: 'Receive real-time system notices and updates directly from the ALS Hamtic Coordinator.'
           }, {
             icon: <ShieldIcon className="h-6 w-6 text-[#0038A8]" />,
-            title: 'Secure Validation',
-            description: 'Your documents and personal information are handled with government-grade security.'
+            title: 'Privacy Focus',
+            description: 'Your personal information is handled with security and respect for your privacy.'
           }, {
             icon: <ClockIcon className="h-6 w-6 text-[#0038A8]" />,
             title: 'Real-time Tracking',
             description: 'Log in to your dashboard to see exactly where your application stands in the queue.'
           }, {
             icon: <GlobeIcon className="h-6 w-6 text-[#0038A8]" />,
-            title: 'Inclusive Access',
+            title: 'Works on Any Phone',
             description: 'Fully optimized for mobile phones, tablets, and desktops for complete accessibility.'
           }, {
             icon: <UserPlusIcon className="h-6 w-6 text-[#0038A8]" />,
-            title: 'Dedicated Support',
-            description: 'Direct contact lines and guided tips throughout every step of your enrollment.'
+            title: 'Fast Support',
+            description: 'Use the built-in contact form to send inquiries directly to the administrative team.'
           }].map((feature, index) => <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
@@ -138,8 +137,8 @@ const Home = () => {
         <div className="w-full px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
             <div className="max-w-xl">
-              <span className="text-[#E2231A] font-bold tracking-widest uppercase text-xs">
-                Process Flow
+              <span className="text-red-600 font-bold tracking-widest uppercase text-xs">
+                How It Works
               </span>
               <h2 className="text-4xl font-black text-white mt-3 font-display">
                 Your 4-Step Journey
@@ -154,30 +153,30 @@ const Home = () => {
             {[{
             step: '01',
             title: 'Register',
-            description: 'Create your secure account using an active email address.',
+            description: 'Create your secure account using a valid email address.',
             icon: <UserPlusIcon className="h-6 w-6" />
           }, {
             step: '02',
             title: 'Fill Form',
-            description: 'Complete the 5-step enrollment questionnaire accurately.',
+            description: 'Complete the digital enrollment questionnaire completely and accurately.',
             icon: <FileTextIcon className="h-6 w-6" />
           }, {
             step: '03',
-            title: 'Verify',
-            description: 'Upload required IDs and documents for review.',
+            title: 'Assessment',
+            description: 'Wait while our coordinators review your submitted information and preferred schedule.',
             icon: <ShieldIcon className="h-6 w-6" />
           }, {
             step: '04',
-            title: 'Learn',
-            description: 'Receive your confirmation and start your ALS classes!',
+            title: 'Result',
+            description: 'Check your dashboard for your approval status and subject assignments.',
             icon: <CheckCircleIcon className="h-6 w-6" />
           }].map((item, index) => <div key={index} className="relative group">
                 <div className="bg-white/5 backdrop-blur-sm p-8 rounded-3xl border border-white/10 hover:bg-white/10 transition-all duration-500 h-full">
                   <div className="flex justify-between items-start mb-8">
-                    <span className="text-4xl font-black text-white/20 group-hover:text-[#E2231A]/40 transition-colors duration-500">
+                    <span className="text-4xl font-black text-white/20 group-hover:text-red-400/40 transition-colors duration-500">
                       {item.step}
                     </span>
-                    <div className="p-3 bg-white/10 rounded-2xl text-[#E2231A]">
+                    <div className="p-3 bg-white/10 rounded-2xl text-red-400">
                       {item.icon}
                     </div>
                   </div>
@@ -204,11 +203,10 @@ const Home = () => {
             </div>
             
             <h2 className="text-4xl md:text-5xl font-black text-white leading-tight font-display mb-8 relative z-10">
-              Education is the key to<br /><span className="text-[#E2231A]">a better future.</span>
+              Education is the key to<br /><span className="text-red-400">a better future.</span>
             </h2>
             <p className="text-xl text-blue-100 mb-12 max-w-2xl mx-auto relative z-10">
-              Join the thousands of Hamtinon learners who have changed 
-              their lives through the ALS program.
+              Hundreds of people in Hamtic have gone back to school through ALS. You can too.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center relative z-10">
               <Link to="/enrollment" className="btn-cta text-xl px-10 py-5">

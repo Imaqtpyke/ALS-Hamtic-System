@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { useAuth } from '../AuthContext';
 import { Link } from 'react-router-dom';
@@ -13,11 +13,7 @@ import {
   ChevronRightIcon,
   PhoneIcon,
   MapPinIcon,
-  SendIcon,
-  MessageSquareIcon,
-  DownloadCloudIcon,
   Loader2Icon,
-  FileTextIcon,
   MailIcon
 } from 'lucide-react';
 import { useDataContext } from '../DataContext';
@@ -27,7 +23,6 @@ import { LockIcon } from 'lucide-react';
 
 interface EnrollmentRecord {
   id: string;
-  status: 'pending' | 'approved' | 'rejected' | 'enrolled';
   personal_info: {
     firstName: string;
     lastName: string;
@@ -41,25 +36,31 @@ interface EnrollmentRecord {
   rejection_reason?: string;
   submitted_at: string;
   approved_at?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'enrolled';
+  status_history?: Array<{
+    status: string;
+    date: string;
+    notes: string;
+    updated_by: string;
+  }>;
 }
 
-interface Announcement {
+type UnifiedNotification = {
   id: string;
+  type: 'global' | 'personal';
   title: string;
   message: string;
+  date: string;
   priority: 'low' | 'medium' | 'high';
-  created_at: string;
-}
+};
 
 const StudentDashboard = () => {
   const { user } = useAuth();
   const [enrollment, setEnrollment] = useState<EnrollmentRecord | null>(null);
-  const [inquiries, setInquiries] = useState<any[]>([]);
-  const { grades, profiles, announcements } = useDataContext();
+  const { profiles, announcements } = useDataContext();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
-  const [submittingInquiry, setSubmittingInquiry] = useState(false);
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState('');
 
@@ -74,41 +75,17 @@ const StudentDashboard = () => {
         .on('postgres_changes', { 
           event: 'UPDATE', 
           schema: 'public', 
-          table: 'inquiries', 
-          filter: `user_id=eq.${user.uid}` 
-        }, (payload) => {
-          if (payload.new.admin_reply !== payload.old?.admin_reply) {
-            toast.success("Coordinator replied to your inquiry!", { icon: '💬' });
-          }
-          fetchDashboardData(false);
-        })
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
           table: 'enrollments', 
           filter: `user_id=eq.${user.uid}` 
         }, (payload) => {
           if (payload.new.status !== payload.old?.status) {
             const status = payload.new.status;
-            toast.success(`Application Update: Your status is now ${status}!`, { 
+            toast.success(`Update: Your application is now ${status}.`, { 
               icon: status === 'approved' ? '🎉' : '🔔',
               duration: 5000 
             });
           }
           fetchDashboardData(false);
-        })
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'assessments',
-          filter: `user_id=eq.${user.uid}`
-        }, (payload) => {
-          if (payload.eventType === 'INSERT') {
-            toast.success(`New Grade Posted: ${payload.new.module_name}`, { icon: '📊' });
-          } else if (payload.eventType === 'UPDATE') {
-            toast.success(`Grade Updated: ${payload.new.module_name}`, { icon: '🔄' });
-          }
-          fetchDashboardData();
         })
         .on('postgres_changes', { 
           event: 'INSERT', 
@@ -136,6 +113,7 @@ const StudentDashboard = () => {
     try {
       if (isFirstTime) setHasInitialLoaded(false);
       setLoading(true);
+      
       // Fetch enrollment
       const { data: enrollData, error: enrollError } = await supabase
         .from('enrollments')
@@ -147,14 +125,6 @@ const StudentDashboard = () => {
 
       if (enrollError) throw enrollError;
       setEnrollment(enrollData);
-
-      // Fetch student inquiries
-      const { data: inqData } = await supabase
-        .from('inquiries')
-        .select('*')
-        .eq('user_id', user?.uid)
-        .order('created_at', { ascending: false });
-      setInquiries(inqData || []);
 
       // Check blocked status
       const userProfile = profiles.find(p => p.id === user?.uid);
@@ -171,11 +141,33 @@ const StudentDashboard = () => {
     }
   };
 
+  const unifiedNotifications = useMemo<UnifiedNotification[]>(() => {
+    const globalNotifs: UnifiedNotification[] = announcements.map((a: any) => ({
+      id: `global-${a.id}`,
+      type: 'global',
+      title: a.title,
+      message: a.message,
+      date: a.date || a.created_at || new Date().toISOString(),
+      priority: (a.priority || 'medium') as 'low' | 'medium' | 'high'
+    }));
+
+    const personalNotifs: UnifiedNotification[] = (enrollment?.status_history || []).map((h, i) => ({
+      id: `personal-${i}`,
+      type: 'personal',
+      title: `Application Status: ${h.status.toUpperCase()}`,
+      message: h.notes || `Your application status was updated to ${h.status}.`,
+      date: h.date,
+      priority: h.status === 'rejected' ? 'high' : (['enrolled', 'approved'].includes(h.status) ? 'high' : 'medium')
+    }));
+
+    return [...globalNotifs, ...personalNotifs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [announcements, enrollment?.status_history]);
+
   const StatusTracker = ({ status, reason }: { status: string, reason?: string }) => {
     const steps = [
       { id: 'submitted', label: 'Received', icon: <MailIcon className="w-5 h-5" />, completed: true },
-      { id: 'review', label: 'Under Review', icon: <ClockIcon className="w-5 h-5" />, completed: status !== 'rejected' },
-      { id: 'final', label: status === 'approved' || status === 'enrolled' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Final Decision', 
+      { id: 'review', label: 'Being Checked', icon: <ClockIcon className="w-5 h-5" />, completed: status !== 'rejected' },
+      { id: 'final', label: status === 'approved' || status === 'enrolled' ? 'Approved' : status === 'rejected' ? 'Not Accepted' : 'Result', 
         icon: status === 'approved' || status === 'enrolled' ? <CheckCircleIcon className="w-5 h-5" /> : status === 'rejected' ? <AlertCircleIcon className="w-5 h-5" /> : <ChevronRightIcon className="w-5 h-5" />, 
         completed: status !== 'pending' && status !== 'review',
         active: status !== 'pending'
@@ -302,7 +294,7 @@ const StudentDashboard = () => {
             {/* Tab Navigation */}
             {enrollment && enrollment.status === 'enrolled' && (
               <div className="flex gap-4 mb-8 bg-gray-100 p-1.5 rounded-2xl w-fit">
-                {['overview', 'grades', 'support'].map((tab) => (
+                {['overview'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -335,7 +327,7 @@ const StudentDashboard = () => {
             ) : enrollment.status === 'pending' || enrollment.status === 'rejected' ? (
               /* Application Tracker View */
               <StatusTracker status={enrollment.status} reason={enrollment.rejection_reason} />
-            ) : activeTab === 'overview' ? (
+            ) : (
               /* Admitted Student Portal View */
               <div className="space-y-8">
                 {/* Student ID Card Overlay (already exists in original code) */}
@@ -354,7 +346,7 @@ const StudentDashboard = () => {
                       <h3 className="text-3xl font-black text-gray-900 font-display">STU-{enrollment.id.substring(0, 8).toUpperCase()}</h3>
                       <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-8">
                         <div>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Strand</p>
+                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Program</p>
                           <p className="font-bold text-gray-700">Junior High - ALS</p>
                         </div>
                         <div>
@@ -389,131 +381,11 @@ const StudentDashboard = () => {
                       <div className="flex flex-wrap gap-2">
                         {enrollment.subjects?.map((s, i) => (
                            <span key={i} className="px-3 py-1 bg-gray-50 text-gray-700 text-[10px] font-bold rounded-lg border border-gray-100">{s.name}</span>
-                        )) || <p className="text-gray-500 text-sm">Awaiting assignment...</p>}
+                        )) || <p className="text-gray-500 text-sm">Not assigned yet</p>}
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : activeTab === 'grades' ? (
-              <div className="space-y-6">
-                 <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm">
-                    <h3 className="text-2xl font-black font-display mb-2">Academic Gradebook</h3>
-                    <p className="text-xs text-gray-500 font-black tracking-widest border-b border-gray-50 pb-6 mb-8 uppercase">Official Module Assessment Summary</p>
-                    
-                    <div className="grid grid-cols-1 gap-4">
-                       {grades.filter(g => g.user_id === user?.uid).length === 0 ? (
-                         <div className="py-20 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                            <BookOpenIcon className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                            <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">No assessment results recorded yet.</p>
-                         </div>
-                       ) : (
-                         grades.filter(g => g.user_id === user?.uid).map((g) => (
-                           <div key={g.id} className="p-6 bg-gray-50 rounded-[24px] flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all border border-transparent hover:border-blue-100">
-                              <div className="flex items-center gap-6">
-                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black italic text-lg ${
-                                   g.status === 'passed' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                                 }`}>
-                                    {g.status === 'passed' ? 'A+' : 'F'}
-                                 </div>
-                                 <div>
-                                    <h4 className="font-black text-gray-900 text-sm uppercase">{g.module_name}</h4>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Recorded on {new Date(g.created_at).toLocaleDateString()}</p>
-                                 </div>
-                              </div>
-                              <div className="text-right">
-                                 <p className="text-2xl font-black text-gray-900 tabular-nums">{g.score}<span className="text-gray-300 text-sm ml-1">/ {g.max_score}</span></p>
-                                 <p className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${
-                                   g.status === 'passed' ? 'text-green-600' : 'text-red-600'
-                                 }`}>{g.status}</p>
-                              </div>
-                           </div>
-                         ))
-                       )}
-                    </div>
-                 </div>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Inquiry Form */}
-                    <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm order-2 md:order-1">
-                       <h3 className="text-xl font-black font-display mb-6 uppercase tracking-tight">Need Help?</h3>
-                       <form onSubmit={async (e) => {
-                          e.preventDefault();
-                          const formData = new FormData(e.currentTarget);
-                          const subject = formData.get('subject') as string;
-                          const message = formData.get('message') as string;
-                          
-                          if (!subject || !message) return toast.error('Please fill in all fields');
-                          
-                          setSubmittingInquiry(true);
-                          try {
-                             const { error } = await supabase.from('inquiries').insert({
-                                user_id: user?.uid,
-                                subject,
-                                message,
-                                status: 'open'
-                             });
-                             if (error) throw error;
-                             toast.success('Inquiry sent successfully!');
-                             (e.target as HTMLFormElement).reset();
-                             fetchDashboardData();
-                          } catch (err) {
-                             toast.error('Failed to send inquiry');
-                          } finally {
-                             setSubmittingInquiry(false);
-                          }
-                       }} className="space-y-6">
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Topic / Subject</label>
-                             <input name="subject" required className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#0038A8] font-bold text-sm" placeholder="e.g. Schedule Clarification" />
-                          </div>
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Your Message</label>
-                             <textarea name="message" required rows={4} className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#0038A8] font-medium text-sm" placeholder="Describe your concern here..." />
-                          </div>
-                          <button 
-                             disabled={submittingInquiry}
-                             className="w-full py-4 bg-[#0038A8] text-white font-black rounded-2xl shadow-lg shadow-blue-900/10 hover:scale-105 active:scale-95 transition-all text-sm uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-3"
-                          >
-                             {submittingInquiry ? <Loader2Icon className="w-5 h-5 animate-spin" /> : <><SendIcon className="w-4 h-4" /> Send Inquiry</>}
-                          </button>
-                       </form>
-                    </div>
-
-                    {/* Chat History */}
-                    <div className="space-y-6 order-1 md:order-2">
-                       <h3 className="text-xl font-black font-display uppercase tracking-tight px-2">Your Conversations</h3>
-                       <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                          {inquiries.length === 0 ? (
-                             <div className="p-10 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                                <MessageSquareIcon className="w-8 h-8 text-gray-200 mx-auto mb-3" />
-                                <p className="text-[10px] font-bold text-gray-500 uppercase">No messages yet.</p>
-                             </div>
-                          ) : (
-                             inquiries.map((inq) => (
-                                <div key={inq.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                                   <div className="flex justify-between items-start mb-3">
-                                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${inq.status === 'open' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
-                                         {inq.status}
-                                      </span>
-                                      <p className="text-[10px] font-bold text-gray-500">{new Date(inq.created_at).toLocaleDateString()}</p>
-                                   </div>
-                                   <h4 className="font-black text-gray-900 text-sm mb-4">{inq.subject}</h4>
-                                   
-                                   {inq.admin_reply && (
-                                      <div className="mt-4 pt-4 border-t border-gray-50 bg-blue-50/30 p-4 rounded-2xl">
-                                         <p className="text-[10px] font-black text-[#0038A8] uppercase tracking-widest mb-2">Admin Reply</p>
-                                         <p className="text-xs font-bold text-gray-700 italic">"{inq.admin_reply}"</p>
-                                      </div>
-                                   )}
-                                </div>
-                             ))
-                          )}
-                       </div>
-                    </div>
-                 </div>
               </div>
             )}
           </div>
@@ -523,14 +395,14 @@ const StudentDashboard = () => {
             <div className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3 mb-8">
                 <BellIcon className="w-6 h-6 text-[#0038A8]" />
-                <h3 className="text-xl font-black text-gray-900 font-display">Notice Board</h3>
+                <h3 className="text-xl font-black text-gray-900 font-display">Notifications</h3>
               </div>
 
               <div className="space-y-6">
-                {announcements.length === 0 ? (
-                  <p className="text-center text-gray-500 text-sm py-10 font-medium italic">No announcements today.</p>
+                {unifiedNotifications.length === 0 ? (
+                  <p className="text-center text-gray-500 text-sm py-10 font-medium italic">No notifications today.</p>
                 ) : (
-                  announcements.map((item) => (
+                  unifiedNotifications.map((item) => (
                     <motion.div 
                       key={item.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -541,9 +413,17 @@ const StudentDashboard = () => {
                         'border-blue-300 bg-blue-50/5'
                       }`}
                     >
-                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </p>
+                      <div className="flex items-center gap-2 mb-3">
+                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                           item.type === 'global' ? 'bg-gray-200 text-gray-600' : 
+                           item.priority === 'high' ? 'bg-red-200 text-red-800' : 'bg-blue-200 text-blue-800'
+                         }`}>
+                            {item.type === 'global' ? 'Global Notice' : 'Status Update'}
+                         </span>
+                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                           {new Date(item.date).toLocaleDateString()}
+                         </span>
+                      </div>
                       <h4 className="font-black text-gray-900 text-lg mb-2 leading-tight">{item.title}</h4>
                       <p className="text-gray-600 text-sm leading-relaxed">{item.message}</p>
                     </motion.div>

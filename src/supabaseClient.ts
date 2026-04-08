@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { auth } from './firebase';
 
 // --- DATABASE TYPES ---
 type Database = {
@@ -86,12 +87,27 @@ if (!isSupabaseConfigured) {
 
 // Create Supabase client
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  // Use anon key. Do not override accessToken with Firebase token
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
   },
+  global: {
+    fetch: async (url, options = {}) => {
+      const user = auth?.currentUser;
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          const headers = new Headers(options.headers || {});
+          headers.set('Authorization', `Bearer ${token}`);
+          return fetch(url, { ...options, headers });
+        } catch (error) {
+          console.error('Error fetching Firebase token for Supabase:', error);
+        }
+      }
+      return fetch(url, options);
+    }
+  }
 });
 
 // Helper function to get table with type safety

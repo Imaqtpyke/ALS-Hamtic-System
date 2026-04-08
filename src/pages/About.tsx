@@ -19,11 +19,10 @@ const About = () => {
                   Alternative Learning System
                </div>
                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black font-display tracking-tight leading-tight">
-                 Institutional Excellence in <span className="text-white opacity-90">Hamtic</span>
+                 Quality Education for <span className="text-white opacity-90">All in Hamtic</span>
                </h1>
                <p className="mt-6 text-xl text-blue-100 max-w-2xl font-medium">
-                 Providing accessible, high-quality education opportunities for all learners in
-                 Hamtic, Antique.
+                 ALS gives everyone in Hamtic, Antique the chance to finish their schooling — no matter their age or situation.
                </p>
              </div>
              <div className="md:col-span-2 hidden md:block">
@@ -94,9 +93,7 @@ const About = () => {
             </h2>
              <div className="h-1.5 w-20 bg-[#E2231A] mx-auto mt-6 rounded-full"></div>
             <p className="mt-6 text-xl text-gray-600 max-w-3xl mx-auto">
-              The Alternative Learning System (ALS) is a parallel learning
-              system that provides a practical, robust option to existing formal
-              instruction.
+              ALS is a free government program that lets you study and get a diploma even if you didn't finish regular school.
             </p>
           </div>
           
@@ -108,11 +105,11 @@ const About = () => {
               </p>
               <ul className="space-y-5">
                 {[
-                  'Develop basic and functional literacy skills.',
-                  'Acquire equivalency in the formal education system.',
-                  'Prepare for higher education, employment, or entrepreneurship.',
-                  'Enhance competence to improve overall quality of life.',
-                  'Enable meaningful contributions to families and communities.',
+                  'Learn how to read, write, and count better.',
+                  'Get a certificate that is equal to regular school.',
+                  'Prepare for college, a job, or starting a business.',
+                  'Learn new skills to improve your daily life.',
+                  'Help your family and community more effectively.',
                 ].map((item, index) => (
                   <li key={index} className="flex items-start bg-gray-50 p-4 rounded-xl">
                     <ClipboardCheckIcon className="h-6 w-6 text-[#0038A8] mr-4 flex-shrink-0 mt-0.5" />
@@ -158,7 +155,7 @@ const About = () => {
       <section className="py-16 md:py-24 bg-[var(--surface-low)]">
         <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-[#E2231A] font-bold tracking-widest uppercase text-xs">
+            <span className="text-red-600 font-bold tracking-widest uppercase text-xs">
               Curriculum
             </span>
             <h2 className="text-4xl sm:text-5xl font-black text-gray-900 mt-3 font-display">
@@ -171,9 +168,9 @@ const About = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { title: 'Basic Literacy Program', desc: 'For non-readers focusing on foundational literacy and numeracy skills.', points: ['Reading and Writing', 'Basic Mathematics', 'Functional Life Skills'] },
-              { title: 'Elementary Level', desc: 'Equivalent to formal elementary education, developing foundational knowledge.', points: ['Communication Skills', 'Problem Solving', 'Scientific Literacy'] },
-              { title: 'Secondary Level', desc: 'Equivalent to formal junior high school, preparing learners for higher education.', points: ['Advanced Communication', 'Mathematics and Sciences', 'Digital Literacy'] }
+              { title: 'Basic Literacy Program', desc: 'Use this portal to register for non-readers focusing on foundational literacy and numeracy skills.', points: ['Reading and Writing', 'Basic Mathematics', 'Functional Life Skills'] },
+              { title: 'Elementary Level', desc: 'Use this portal to register for formal elementary education equivalence tracks.', points: ['Communication Skills', 'Problem Solving', 'Scientific Literacy'] },
+              { title: 'Secondary Level', desc: 'Use this portal to register for junior high school equivalence tracks.', points: ['Advanced Communication', 'Mathematics and Sciences', 'Digital Literacy'] }
             ].map((prog, idx) => (
               <div key={idx} className="card-tonal p-8 group hover:-translate-y-2 transition-all duration-300">
                 <div className="bg-[#0038A8]/5 rounded-2xl w-14 h-14 flex items-center justify-center mb-6 group-hover:bg-[#0038A8] transition-colors duration-300">
@@ -205,7 +202,7 @@ const About = () => {
         <div className="w-full px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
           <div className="card-tonal p-8 sm:p-12 md:p-16 border-t-[6px] border-[#0038A8]">
              <div className="text-center mb-10">
-               <span className="bg-[#E2231A]/10 text-[#E2231A] px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider mb-4 inline-block">Official DepEd Accreditation</span>
+               <span className="bg-[#E2231A]/10 text-red-600 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider mb-4 inline-block">Official DepEd Accreditation</span>
                <h2 className="text-4xl font-black text-gray-900 font-display mt-4">
                  Certification & Equivalency
                </h2>
@@ -261,10 +258,10 @@ const About = () => {
         </div>
         <div className="relative z-10 max-w-4xl mx-auto">
           <h2 className="text-4xl md:text-5xl font-black text-white font-display mb-6">
-            Begin Your Educational Journey
+            Ready to Sign Up?
           </h2>
           <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
-            Take the first step toward achieving your educational goals today. We are here to guide you.
+            Starting is easy. Fill out the online form and our team will guide you from there.
           </p>
           <a href="/enrollment" className="btn-cta text-lg px-8 py-4 inline-flex items-center group">
              Start Enrollment

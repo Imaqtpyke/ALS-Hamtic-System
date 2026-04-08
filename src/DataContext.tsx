@@ -39,16 +39,6 @@ export type Announcement = {
   priority: string;
 };
 
-export type Grade = {
-  id: string;
-  user_id: string;
-  module_name: string;
-  score: number;
-  max_score: number;
-  status: 'passed' | 'failed' | 'pending';
-  created_at: string;
-  student_name?: string;
-};
 
 export type UserProfile = {
   id: string;
@@ -86,11 +76,6 @@ interface DataContextType {
   updateAnnouncement: (id: string, updates: Partial<Announcement>) => Promise<void>;
   deleteAnnouncement: (id: string) => Promise<void>;
   
-  // Grading
-  grades: Grade[];
-  addGrade: (grade: Omit<Grade, 'id' | 'created_at'>) => Promise<void>;
-  updateGrade: (id: string, updates: Partial<Grade>) => Promise<void>;
-  deleteGrade: (id: string) => Promise<void>;
   
   // User Management
   profiles: UserProfile[];
@@ -110,7 +95,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [grades, setGrades] = useState<Grade[]>([]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,11 +109,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      const [enrollRes, subRes, annRes, gradeRes, profRes, logRes] = await Promise.all([
+      const [enrollRes, subRes, annRes, profRes, logRes] = await Promise.all([
         supabase.from('enrollments').select('*').order('submitted_at', { ascending: false }),
         supabase.from('subjects').select('*'),
         supabase.from('announcements').select('*').order('created_at', { ascending: false }),
-        supabase.from('assessments').select('*, enrollments(personal_info)').order('created_at', { ascending: false }),
         (async () => {
           try {
             // Updated: Only fetch all user profiles from Firestore if current user is an Admin
@@ -157,7 +140,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (enrollRes.error) throw enrollRes.error;
       if (subRes.error) throw subRes.error;
       if (annRes.error) throw annRes.error;
-      if (gradeRes.error && (gradeRes.error as any).code !== 'PGRST205') throw gradeRes.error;
       if (logRes.error && (logRes.error as any).code !== 'PGRST205') throw logRes.error;
 
       // Map enrollments to Student type with defensive coding
@@ -189,21 +171,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         priority: a.priority
       })));
       
-      const mappedGrades: Grade[] = (gradeRes.data || []).map((g: any) => {
-        const info = g.enrollments?.personal_info || {};
-        return {
-          id: g.id,
-          user_id: g.user_id,
-          module_name: g.module_name,
-          score: g.score,
-          max_score: g.max_score,
-          status: g.status,
-          created_at: g.created_at,
-          student_name: info.firstName ? `${info.firstName} ${info.lastName || ''}`.trim() : 'Unknown Student'
-        };
-      });
-
-      setGrades(mappedGrades);
       
       // Synthesize profiles to ensure the "Manage Users" section is never empty
       // Merge Firestore data (if available) with local registry data
@@ -271,9 +238,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fetchAllData();
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'enrollments' }, () => {
-          fetchAllData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'assessments' }, () => {
           fetchAllData();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
@@ -374,26 +338,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addAnnouncement,
       updateAnnouncement,
       deleteAnnouncement,
-      // Grading
-      grades,
-      addGrade: async (grade) => {
-        const { error } = await supabase.from('assessments').insert(grade);
-        if (error) throw error;
-        if (user?.uid) logAuditAction(user.uid, 'add_grade', 'assessment', grade.user_id, grade);
-        fetchAllData();
-      },
-      updateGrade: async (id, updates) => {
-        const { error } = await supabase.from('assessments').update(updates).eq('id', id);
-        if (error) throw error;
-        if (user?.uid) logAuditAction(user.uid, 'update_grade', 'assessment', id, updates);
-        fetchAllData();
-      },
-      deleteGrade: async (id) => {
-        const { error } = await supabase.from('assessments').delete().eq('id', id);
-        if (error) throw error;
-        if (user?.uid) logAuditAction(user.uid, 'delete_grade', 'assessment', id);
-        fetchAllData();
-      },
       // User Management
       profiles,
       blockUser: async (id, reason) => {
@@ -459,7 +403,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Firebase account deletion restricted by permissions. Still cleaning up Supabase data...', e);
         }
         
-        // 2. Delete from Supabase registry (Enrollment/Grades)
+        // 2. Delete from Supabase registry (Enrollment)
         const { error: enrollErr } = await supabase.from('enrollments').delete().eq('user_id', id);
         if (enrollErr) throw enrollErr;
         

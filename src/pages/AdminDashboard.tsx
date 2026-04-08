@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AnnouncementManager } from '../components/admin/AnnouncementManager';
+import { SubjectManagement } from '../components/admin/SubjectManagement';
 import { 
   BookOpenIcon, CalendarIcon, BellIcon, FileTextIcon, SettingsIcon, LogOutIcon, 
-  ChevronDownIcon, CheckCircleIcon, ClockIcon, UsersIcon, PlusCircleIcon, 
+  ChevronDownIcon, CheckCircleIcon, ClockIcon, UsersIcon, 
   BarChart2Icon, GridIcon, SearchIcon, TrashIcon, EditIcon, EyeIcon, 
   DownloadIcon, HistoryIcon, AlertTriangleIcon, InfoIcon, MapPinIcon, MenuIcon, XIcon, ShieldIcon
 } from 'lucide-react';
@@ -118,18 +120,16 @@ const AdminDashboard = () => {
   // Data State
   const { 
     students, subjects, announcements, 
-    profiles, auditLogs, grades,
+    profiles, auditLogs,
     loading: contextLoading, error: contextError, 
     updateStudent, deleteStudent, addStudent, 
     addSubject, updateSubject, deleteSubject,
     addAnnouncement, updateAnnouncement, deleteAnnouncement,
     refreshData,
-    blockUser, unblockUser, deleteUserAccount,
-    addGrade, updateGrade, deleteGrade
+    blockUser, unblockUser, deleteUserAccount
   } = useDataContext();
 
-  const [inquiries, setInquiries] = useState<any[]>([]);
-  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   // Forms Visibility
@@ -141,53 +141,7 @@ const AdminDashboard = () => {
   const [promptModal, setPromptModal] = useState<{ title: string; fields: any[]; onSubmit: (data: any) => void } | null>(null);
   const [isPromptSubmitting, setIsPromptSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchDashboardSpecificData();
 
-    // Admin Real-time Inquiry Alert
-    if (isSupabaseConfigured) {
-      const inquiryChannel = supabase
-        .channel('admin-inbox-alerts')
-        .on('postgres_changes', { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'inquiries' 
-        }, (payload) => {
-          toast.success(`New Message: ${payload.new.subject}`, { 
-            icon: '📩', 
-            duration: 5000 
-          });
-          refreshData(); // Refresh global context
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(inquiryChannel);
-      };
-    }
-  }, []);
-
-  const fetchDashboardSpecificData = async () => {
-    if (!isSupabaseConfigured) {
-      setIsDataLoading(false);
-      return;
-    }
-    setIsDataLoading(true);
-    try {
-      const { data: inqData, error: inqError } = await supabase
-        .from('inquiries')
-        .select('*, enrollments(personal_info)')
-        .order('created_at', { ascending: false });
-
-      if (inqError) throw inqError;
-      setInquiries(inqData || []);
-    } catch (err) {
-      console.error('Error fetching secondary admin data:', err);
-      toast.error('Failed to sync system data');
-    } finally {
-      setIsDataLoading(false);
-    }
-  };
 
 
   // Handlers
@@ -204,9 +158,9 @@ const AdminDashboard = () => {
           type: 'select', 
           defaultValue: 'pending',
           options: [
-            { label: 'Pending for Review', value: 'pending' },
+            { label: 'Waiting for Review', value: 'pending' },
             { label: 'Currently Enrolled', value: 'enrolled' },
-            { label: 'Rejected / Incomplete', value: 'rejected' }
+            { label: 'Not Accepted', value: 'rejected' }
           ]
         }
       ],
@@ -220,7 +174,7 @@ const AdminDashboard = () => {
             subjects: 0,
             progress: 0
           });
-          toast.success('Learner added to registry');
+          toast.success('Applicant registered');
           setPromptModal(null);
         } catch (err: any) {
           toast.error(err.message || 'Addition failed');
@@ -243,10 +197,10 @@ const AdminDashboard = () => {
           type: 'select', 
           defaultValue: s.status,
           options: [
-            { label: 'Pending for Review', value: 'pending' },
+            { label: 'Waiting for Review', value: 'pending' },
             { label: 'Currently Enrolled', value: 'enrolled' },
             { label: 'Graduated / Completed', value: 'graduated' },
-            { label: 'Rejected / Incomplete', value: 'rejected' }
+            { label: 'Not Accepted', value: 'rejected' }
           ]
         }
       ],
@@ -266,7 +220,7 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteStudent = (id: string) => {
-    if (window.confirm('Are you sure you want to PERMANENTLY delete this student record? This action cannot be undone.')) {
+    if (window.confirm('Are you sure you want to delete this applicant? This cannot be undone.')) {
       deleteStudent(id);
     }
   };
@@ -274,14 +228,14 @@ const AdminDashboard = () => {
   const handleAddSubject = () => { setEditSubject(null); setShowSubjectForm(true); };
   const handleEditSubject = (s: Subject) => { setEditSubject(s); setShowSubjectForm(true); };
   const handleDeleteSubject = (id: string) => {
-    if (window.confirm('Delete this strand?')) deleteSubject(id);
+    if (window.confirm('Delete this subject?')) deleteSubject(id);
   };
 
   const handleAddAnnouncement = () => {
     setPromptModal({
-      title: 'Post Announcement',
+      title: 'Post a Notice',
       fields: [
-        { name: 'title', label: 'Announcement Title', type: 'text', placeholder: 'e.g. Enrollment Period Extended' },
+        { name: 'title', label: 'Notice Title', type: 'text', placeholder: 'e.g. Enrollment Period Extended' },
         { 
           name: 'priority', 
           label: 'Priority Level', 
@@ -300,7 +254,7 @@ const AdminDashboard = () => {
         setIsPromptSubmitting(true);
         try {
           await addAnnouncement(data);
-          toast.success('Announcement posted and broadcasted');
+          toast.success('Notice sent to all applicants');
           setPromptModal(null);
         } catch (err: any) {
           toast.error(err.message || 'Post failed');
@@ -313,9 +267,9 @@ const AdminDashboard = () => {
 
   const handleEditAnnounce = (ann: any) => {
     setPromptModal({
-      title: 'Edit Announcement',
+      title: 'Edit Notice',
       fields: [
-        { name: 'title', label: 'Announcement Title', type: 'text', defaultValue: ann.title },
+        { name: 'title', label: 'Notice Title', type: 'text', defaultValue: ann.title },
         { 
           name: 'priority', 
           label: 'Priority Level', 
@@ -333,7 +287,7 @@ const AdminDashboard = () => {
         setIsPromptSubmitting(true);
         try {
           await updateAnnouncement(ann.id, data);
-          toast.success('Announcement updated successfully');
+          toast.success('Notice updated');
           setPromptModal(null);
         } catch (err: any) {
           toast.error(err.message || 'Update failed');
@@ -345,41 +299,16 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteAnnounce = async (id: string) => {
-    if (window.confirm('PERMANENTLY REMOVE this announcement from the system?')) {
+    if (window.confirm('Delete this notice? This cannot be undone.')) {
       try {
         await deleteAnnouncement(id);
-        toast.success('Announcement removed successfully');
+        toast.success('Notice removed');
       } catch (err: any) {
-        toast.error('Failed to remove announcement: ' + err.message);
+        toast.error('Failed to remove notice: ' + err.message);
       }
     }
   };
 
-  const handleGradeSubmit = async (data: any) => {
-    try {
-      if (data.id) {
-        const { id, ...updates } = data;
-        await updateGrade(id, updates);
-        toast.success('Grade updated');
-      } else {
-        await addGrade(data);
-        toast.success('Grade recorded');
-      }
-      setPromptModal(null);
-    } catch (err: any) {
-      toast.error('Grade Operation Failed: ' + err.message);
-    }
-  };
-
-  const handleDeleteGrade = async (id: string) => {
-    if (!window.confirm('PERMANENTLY remove this grade record?')) return;
-    try {
-      await deleteGrade(id);
-      toast.success('Grade record removed');
-    } catch (err: any) {
-      toast.error('Failed to remove grade: ' + err.message);
-    }
-  };
 
   // Export Logic
   const exportToExcel = () => {
@@ -393,7 +322,7 @@ const AdminDashboard = () => {
     const doc = new jsPDF() as any;
     doc.text("ALS Hamtic - Student Enrollment Report", 14, 15);
     doc.autoTable({
-      head: [['ID', 'Name', 'Email', 'Strand', 'Status']],
+      head: [['ID', 'Name', 'Email', 'Subjects', 'Status']],
       body: students.map(s => [s.id, s.name, s.email, s.subjects, s.status]),
       startY: 20
     });
@@ -472,13 +401,11 @@ const AdminDashboard = () => {
           {[
             { id: 'dashboard', name: 'Dashboard', icon: <GridIcon size={20} /> },
             { id: 'analytics', name: 'Analytics', icon: <BarChart2Icon size={20} /> },
-            { id: 'students', name: 'Learners', icon: <UsersIcon size={20} /> },
-            { id: 'subjects', name: 'Strand Management', icon: <BookOpenIcon size={20} /> },
-            { id: 'announcements', name: 'Announcements', icon: <BellIcon size={20} /> },
-            { id: 'assessments', name: 'Grading', icon: <FileTextIcon size={20} /> },
-            { id: 'inquiries', name: 'Messages', icon: <InfoIcon size={20} /> },
+            { id: 'students', name: 'Applicants', icon: <UsersIcon size={20} /> },
+            { id: 'subjects', name: 'Subject Management', icon: <BookOpenIcon size={20} /> },
+            { id: 'announcements', name: 'Notices', icon: <BellIcon size={20} /> },
             { id: 'users', name: 'Manage Users', icon: <ShieldIcon size={20} /> },
-            { id: 'reports', name: 'Audit Logs', icon: <HistoryIcon size={20} /> },
+            { id: 'reports', name: 'History', icon: <HistoryIcon size={20} /> },
           ].map(item => (
             <button
               key={item.id}
@@ -537,9 +464,9 @@ const AdminDashboard = () => {
           {activeSidebarItem === 'dashboard' && (
             <div className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <StatCard icon={<UsersIcon className="text-red-700" />} title="Total Enrollees" value={students.length} change="+12.5%" color="bg-red-50" />
-                <StatCard icon={<ClockIcon className="text-amber-700" />} title="Pending Learners" value={students.filter(s => s.status === 'pending').length} change="Review Required" color="bg-amber-50 shadow-sm border border-amber-100" />
-                <StatCard icon={<BellIcon className="text-red-700" />} title="Active Announcements" value={announcements.length} change="Stable" color="bg-red-50" />
+                <StatCard icon={<UsersIcon className="text-red-700" />} title="Total Applicants" value={students.length} change="+12.5%" color="bg-red-50" />
+                <StatCard icon={<ClockIcon className="text-amber-700" />} title="Waiting for Review" value={students.filter(s => s.status === 'pending').length} change="Attention Required" color="bg-amber-50 shadow-sm border border-amber-100" />
+                <StatCard icon={<BellIcon className="text-red-700" />} title="Active Notices" value={announcements.length} change="Stable" color="bg-red-50" />
                 <StatCard icon={<CheckCircleIcon className="text-red-700" />} title="Enrolled" value={students.filter(s => s.status === 'enrolled').length} change="Active" color="bg-red-50" />
               </div>
 
@@ -556,7 +483,7 @@ const AdminDashboard = () => {
                     <table className="w-full min-w-[800px]">
                       <thead>
                         <tr className="text-left font-display">
-                          <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Learner Information</th>
+                          <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Applicant Information</th>
                           <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Current Status</th>
                         </tr>
                       </thead>
@@ -601,9 +528,9 @@ const AdminDashboard = () => {
                 
                 <div className="space-y-8">
                   <div className="bg-red-600 rounded-[32px] p-8 text-white shadow-xl shadow-red-600/20">
-                     <h3 className="text-lg font-black mb-2">Broadcast Notice</h3>
-                     <p className="text-red-100 text-sm mb-6 font-medium">Instantly notify all students about holidays or deadlines.</p>
-                     <button onClick={handleAddAnnouncement} className="w-full py-4 bg-white text-red-600 rounded-2xl font-black text-sm hover:bg-red-50 transition-all active:scale-95 shadow-lg">New Broadcast</button>
+                     <h3 className="text-lg font-black mb-2">Send a Notice</h3>
+                     <p className="text-red-100 text-sm mb-6 font-medium">Send a message to all applicants about updates or schedules.</p>
+                     <button onClick={handleAddAnnouncement} className="w-full py-4 bg-white text-red-600 rounded-2xl font-black text-sm hover:bg-red-50 transition-all active:scale-95 shadow-lg">New Notice</button>
                   </div>
                   <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
                      <h3 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-widest">System Health</h3>
@@ -620,8 +547,8 @@ const AdminDashboard = () => {
             <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
               <div className="p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-gray-50">
                 <div>
-                  <h3 className="text-2xl font-black tracking-tight mb-1 uppercase font-display">Learner Pipeline</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Total Registry: {filteredStudents.length} Profiles</p>
+                  <h3 className="text-2xl font-black tracking-tight mb-1 uppercase font-display">Applicant List</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Total Applicants: {filteredStudents.length}</p>
                 </div>
                 <div className="flex gap-4">
                   <select 
@@ -643,8 +570,8 @@ const AdminDashboard = () => {
                   <thead>
                     <tr className="text-left font-display">
                       <th className="px-6 pb-8 text-[10px] font-black text-gray-400 uppercase tracking-widest w-12">#</th>
-                      <th className="px-6 pb-8 text-[10px] font-black text-gray-400 uppercase tracking-widest">Identity</th>
-                      <th className="px-6 pb-8 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Coordinator Actions</th>
+                      <th className="px-6 pb-8 text-[10px] font-black text-gray-400 uppercase tracking-widest">Applicant</th>
+                      <th className="px-6 pb-8 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -660,7 +587,14 @@ const AdminDashboard = () => {
                               </div>
                               <div>
                                  <p className="text-sm font-black text-gray-900 uppercase tracking-tight leading-tight">{s.name}</p>
-                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">ID: {s.id.slice(0, 8)}</p>
+                                 <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID: {s.id.slice(0, 8)}</p>
+                                    <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                                       s.status === 'enrolled' ? 'bg-green-100 text-green-700' :
+                                       s.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                       'bg-amber-100 text-amber-700'
+                                    }`}>{s.status}</span>
+                                 </div>
                               </div>
                            </div>
                         </td>
@@ -668,54 +602,58 @@ const AdminDashboard = () => {
                            <div className="flex items-center justify-end gap-1.5">
                              <button 
                                onClick={() => setSelectedStudent(s)}
-                               className="p-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all shadow-sm active:scale-90"
+                               className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-all shadow-sm font-black text-[10px] uppercase tracking-widest min-w-[100px]"
                                title="View Details"
                              >
-                               <EyeIcon size={16} />
+                               <EyeIcon size={14} /> View
                              </button>
-                             
-                             {s.status !== 'enrolled' && (
-                               <button 
-                                 onClick={() => {
-                                   setPromptModal({
-                                     title: 'Approve Learner',
-                                     fields: [{ name: 'note', label: 'Welcome Note', placeholder: 'e.g. Welcome to ALS-Hamtic!' }],
-                                     onSubmit: async (data) => {
-                                       setIsPromptSubmitting(true);
-                                       await updateStudent(s.id, { status: 'enrolled' });
-                                       await sendStatusEmail(s.name, s.email, 'enrolled');
-                                       toast.success('Learner approved!');
-                                       setPromptModal(null);
-                                       setIsPromptSubmitting(false);
-                                     }
-                                   });
-                                 }}
-                                 className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm active:scale-90"
-                                 title="Approve"
-                                >
-                                 <CheckCircleIcon size={16} />
-                               </button>
-                             )}
                              
                              <button 
                                onClick={() => {
                                  setPromptModal({
-                                   title: 'Flag for Review',
-                                   fields: [{ name: 'reason', label: 'Missing Info / Issue', placeholder: 'e.g. Birth certificate is blurry' }],
+                                   title: 'Accept Applicant',
+                                   fields: [{ name: 'note', label: 'Welcome Note', placeholder: 'e.g. Welcome to ALS-Hamtic!' }],
                                    onSubmit: async (data) => {
                                      setIsPromptSubmitting(true);
-                                     await updateStudent(s.id, { status: 'review' });
-                                     await sendStatusEmail(s.name, s.email, 'review', data.reason);
-                                     toast.success('Flagged for review');
+                                     await updateStudent(s.id, { status: 'enrolled' });
+                                     await sendStatusEmail(s.name, s.email, 'enrolled');
+                                     toast.success('Applicant accepted!');
                                      setPromptModal(null);
                                      setIsPromptSubmitting(false);
                                    }
                                  });
                                }}
-                               className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm active:scale-90"
+                               disabled={s.status === 'enrolled'}
+                               className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all shadow-sm font-black text-[10px] uppercase tracking-widest min-w-[110px] ${
+                                 s.status === 'enrolled' ? 'opacity-50 cursor-not-allowed bg-green-600 text-white' : 'bg-[#16a34a] text-white hover:bg-green-700 active:scale-95'
+                               }`}
+                               title="Approve"
+                              >
+                               <CheckCircleIcon size={14} /> Approve
+                             </button>
+                             
+                             <button 
+                               onClick={() => {
+                                 setPromptModal({
+                                   title: 'Review Application',
+                                   fields: [{ name: 'reason', label: 'Missing Info / Issue', placeholder: 'e.g. Birth certificate is blurry' }],
+                                   onSubmit: async (data) => {
+                                     setIsPromptSubmitting(true);
+                                     await updateStudent(s.id, { status: 'review' });
+                                     await sendStatusEmail(s.name, s.email, 'review', data.reason);
+                                     toast.success('Application marked for review');
+                                     setPromptModal(null);
+                                     setIsPromptSubmitting(false);
+                                   }
+                                 });
+                               }}
+                               disabled={s.status === 'review'}
+                               className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all shadow-sm font-black text-[10px] uppercase tracking-widest min-w-[100px] ${
+                                 s.status === 'review' ? 'opacity-50 cursor-not-allowed bg-amber-600 text-white' : 'bg-[#d97706] text-white hover:bg-amber-700 active:scale-95'
+                               }`}
                                title="Review"
                              >
-                               <AlertTriangleIcon size={16} />
+                               <AlertTriangleIcon size={14} /> Review
                              </button>
 
                              <button 
@@ -733,10 +671,13 @@ const AdminDashboard = () => {
                                    }
                                  });
                                }}
-                               className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-90"
+                               disabled={s.status === 'rejected'}
+                               className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all shadow-sm font-black text-[10px] uppercase tracking-widest min-w-[100px] ${
+                                 s.status === 'rejected' ? 'opacity-50 cursor-not-allowed bg-red-600 text-white' : 'bg-[#dc2626] text-white hover:bg-red-700 active:scale-95'
+                               }`}
                                title="Reject"
                              >
-                               <XIcon size={16} />
+                               <XIcon size={14} /> Reject
                              </button>
                            </div>
                         </td>
@@ -775,259 +716,25 @@ const AdminDashboard = () => {
           )}
 
           {activeSidebarItem === 'announcements' && (
-            <div className="space-y-10">
-              <div className="flex items-center justify-between">
-                <div>
-                   <h2 className="text-3xl font-black tracking-tighter uppercase font-display">System Announcements</h2>
-                   <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em]">Communication Center</p>
-                </div>
-                <button onClick={handleAddAnnouncement} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm">Post New Announcement</button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                 {announcements.map(ann => (
-                    <div key={ann.id} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 flex flex-col group hover:border-red-500 transition-all duration-500">
-                       <div className="flex justify-between items-start mb-6">
-                          <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                            ann.priority === 'high' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-blue-50 text-blue-600'
-                          }`}>{ann.priority}</span>
-                          <div className="flex gap-2">
-                             <button onClick={() => handleEditAnnounce(ann)} className="p-2 hover:bg-gray-50 rounded-xl transition-all"><EditIcon size={16} className="text-gray-300 group-hover:text-blue-600" /></button>
-                             <button onClick={() => handleDeleteAnnounce(ann.id)} className="p-2 hover:bg-gray-50 rounded-xl transition-all"><TrashIcon size={16} className="text-gray-300 group-hover:text-red-600" /></button>
-                          </div>
-                       </div>
-                       <h3 className="text-xl font-black mb-4 group-hover:text-red-600 transition-colors uppercase leading-[0.9]">{ann.title}</h3>
-                       <p className="text-gray-400 text-sm font-medium leading-relaxed mb-8">{ann.message}</p>
-                       <div className="mt-auto pt-6 border-t border-gray-50 text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                          {new Date(ann.date).toLocaleDateString()} @ {new Date(ann.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                       </div>
-                    </div>
-                 ))}
-              </div>
-            </div>
+             <AnnouncementManager 
+                announcements={announcements} 
+                handleAddAnnouncement={handleAddAnnouncement} 
+                handleEditAnnounce={handleEditAnnounce}
+                handleDeleteAnnounce={handleDeleteAnnounce}
+             />
           )}
 
           {activeSidebarItem === 'subjects' && (
-            <div className="space-y-10">
-               <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-3xl font-black uppercase tracking-tighter">Academic Strands</h2>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Configure available Subjects for Enrollment</p>
-                  </div>
-                  <button 
-                    onClick={() => setPromptModal({
-                      title: 'Create New Strand',
-                      fields: [
-                        { name: 'name', label: 'Strand Name', placeholder: 'e.g. Humanities and Social Sciences (HUMSS)', type: 'text' }
-                      ],
-                      onSubmit: async (data) => {
-                        if (!data.name) return toast.error('Strand name is required');
-                        if (subjects.some(s => s.name.toLowerCase() === data.name.toLowerCase())) {
-                          return toast.error('A strand with this name already exists');
-                        }
-                        setIsPromptSubmitting(true);
-                        try {
-                          await addSubject({
-                            name: data.name,
-                            capacity: 25, // Default capacity
-                            students: 0,
-                            schedule: 'To be announced'
-                          });
-                          toast.success('New academic strand created!');
-                          setPromptModal(null);
-                        } catch (err) {
-                          toast.error('Failed to create strand');
-                        } finally {
-                          setIsPromptSubmitting(false);
-                        }
-                      }
-                    })}
-                    className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm"
-                  >
-                    Add Academic Strand
-                  </button>
-               </div>
-               
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {subjects.map(s => (
-                     <div key={s.id} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 group hover:border-red-600 transition-all duration-300">
-                        <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                           <BookOpenIcon size={24} />
-                        </div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Official Strand</p>
-                        <h3 className="text-2xl font-black text-gray-900 mb-6 font-display leading-none uppercase tracking-tight line-clamp-2 min-h-[3rem]">{s.name}</h3>
-                        
-                        <div className="flex gap-3 pt-6 border-t border-gray-50">
-                           <button 
-                             onClick={() => setPromptModal({
-                               title: 'Modify Strand',
-                               fields: [
-                                 { name: 'name', label: 'Strand Name', defaultValue: s.name, type: 'text' }
-                               ],
-                               onSubmit: async (data) => {
-                                 setIsPromptSubmitting(true);
-                                 try {
-                                   const finalName = data.name || s.name;
-                                   
-                                   await updateSubject(s.id, {
-                                     name: finalName,
-                                     capacity: s.capacity // Keep existing capacity
-                                   });
-                                   toast.success('Strand updated successfully');
-                                   setPromptModal(null);
-                                 } catch (err) {
-                                   toast.error('Failed to update strand');
-                                 } finally {
-                                   setIsPromptSubmitting(false);
-                                 }
-                               }
-                             })}
-                             className="flex-1 py-3 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all"
-                           >
-                             Manage
-                           </button>
-                           <button 
-                             onClick={() => {
-                               if(window.confirm(`Remove "${s.name}"? This will disable this strand for new enrollments.`)) {
-                                 deleteSubject(s.id);
-                                 toast.success('Strand removed from registry');
-                               }
-                             }}
-                             className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all border border-red-100"
-                           >
-                             <TrashIcon size={16} />
-                           </button>
-                        </div>
-                     </div>
-                  ))}
-               </div>
-            </div>
+             <SubjectManagement 
+                subjects={subjects}
+                setPromptModal={setPromptModal}
+                setIsPromptSubmitting={setIsPromptSubmitting}
+                addSubject={addSubject}
+                updateSubject={updateSubject}
+                deleteSubject={deleteSubject}
+             />
           )}
 
-          {activeSidebarItem === 'assessments' && (
-            <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
-               <div className="p-10 border-b border-gray-50">
-                  <h2 className="text-2xl font-black font-display uppercase tracking-tight">Gradebook Registry</h2>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Official Module Assessment Records</p>
-               </div>
-                <div className="px-10 py-6 border-b border-gray-50 bg-gray-50/30 flex justify-end">
-                  <button 
-                    onClick={() => setPromptModal({
-                      title: 'Add Grade',
-                      fields: [
-                        { 
-                          name: 'user_id', 
-                          label: 'Enrolled Student', 
-                          type: 'select', 
-                          placeholder: 'Select approved learner',
-                          options: students
-                            .filter(s => s.status === 'enrolled')
-                            .map(s => ({ label: s.name, value: s.id }))
-                        },
-                        { name: 'module_name', label: 'Module/Subject Name', placeholder: 'e.g. Communication Skills I', type: 'text' },
-                        { name: 'score', label: 'Score Earned', placeholder: 'e.g. 85', type: 'number' },
-                        { name: 'max_score', label: 'Minimum Score', placeholder: 'e.g. 100', type: 'number' },
-                        { 
-                          name: 'status', 
-                          label: 'Result Status', 
-                          type: 'select', 
-                          defaultValue: 'passed',
-                          options: [
-                            { label: 'Passed', value: 'passed' },
-                            { label: 'Failed', value: 'failed' }
-                          ]
-                        }
-                      ],
-                      onSubmit: async (data) => {
-                        setIsPromptSubmitting(true);
-                        try {
-                          // Important Fix: Using addGrade from useDataContext directly
-                          await addGrade({
-                            ...data,
-                            score: Number(data.score),
-                            max_score: Number(data.max_score)
-                          });
-                          toast.success('Grade recorded successfully!');
-                          setPromptModal(null);
-                        } catch (err: any) {
-                          toast.error(err.message || 'Failed to add grade');
-                        } finally {
-                          setIsPromptSubmitting(false);
-                        }
-                      }
-                    })}
-                    className="px-6 py-2 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center gap-2"
-                  >
-                    <PlusCircleIcon size={14} /> Add Grade
-                  </button>
-               </div>
-               <div className="p-10 overflow-x-auto">
-                 <table className="w-full min-w-[1000px]">
-                     <thead>
-                        <tr className="text-left border-b border-gray-100 pb-4">
-                           <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Learner</th>
-                           <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Module Name</th>
-                           <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Score</th>
-                           <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Result</th>
-                           <th className="px-6 pb-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
-                        </tr>
-                     </thead>
-                     <tbody className="divide-y divide-gray-50">
-                        {grades.filter(g => {
-                           const student = students.find(s => s.id === g.user_id);
-                           return student?.status === 'enrolled';
-                        }).map(ass => (
-                           <tr key={ass.id}>
-                              <td className="px-6 py-8">
-                                 <p className="text-sm font-bold text-gray-900">{ass.student_name}</p>
-                                 <p className="text-[10px] font-bold text-gray-400 uppercase">Registered Learner</p>
-                              </td>
-                              <td className="px-6 py-8 text-sm font-bold text-gray-500 uppercase">{ass.module_name}</td>
-                              <td className="px-6 py-8 text-center tabular-nums">
-                                 <p className="text-xl font-black text-gray-900">{ass.score}</p>
-                                 <p className="text-[10px] text-gray-400 font-bold uppercase">Points of {ass.max_score}</p>
-                              </td>
-                              <td className="px-6 py-8">
-                                 <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                    ass.status === 'passed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                 }`}>{ass.status}</span>
-                              </td>
-                              <td className="px-6 py-8 text-right">
-                                 <div className="flex justify-end gap-2">
-                                    <button 
-                                      onClick={() => setPromptModal({
-                                        title: 'Edit Module Grade',
-                                        fields: [
-                                          { name: 'module_name', label: 'Module Name', placeholder: ass.module_name, type: 'text' },
-                                          { name: 'score', label: 'Score', placeholder: ass.score.toString(), type: 'number' },
-                                          { name: 'max_score', label: 'Max Score', placeholder: ass.max_score.toString(), type: 'number' },
-                                          { name: 'status', label: 'Status', placeholder: ass.status, type: 'text' }
-                                        ],
-                                        onSubmit: (data) => handleGradeSubmit({ ...data, id: ass.id })
-                                      })}
-                                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                    >
-                                      <EditIcon size={16} />
-                                    </button>
-                                    <button 
-                                      onClick={() => {
-                                        if (window.confirm('Remove this grade record?')) {
-                                          handleDeleteGrade(ass.id);
-                                        }
-                                      }}
-                                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                    >
-                                      <TrashIcon size={16} />
-                                    </button>
-                                 </div>
-                              </td>
-                           </tr>
-                        ))}
-                     </tbody>
-                  </table>
-               </div>
-            </div>
-          )}
 
           {activeSidebarItem === 'analytics' && (
             <div className="space-y-10">
@@ -1087,87 +794,6 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {activeSidebarItem === 'inquiries' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center mb-10">
-                <h2 className="text-3xl font-black uppercase tracking-tighter">Student Inquiry Inbox</h2>
-                <div className="bg-red-50 text-red-600 px-4 py-2 rounded-2xl text-xs font-black uppercase">
-                  {inquiries.filter(i => i.status === 'open').length} Unread Messages
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                {inquiries.map(inq => (
-                  <div key={inq.id} className="bg-white p-6 rounded-[24px] border border-gray-100 shadow-sm group hover:border-red-600 transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex gap-4 items-center">
-                        <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400">
-                          <UsersIcon size={20} />
-                        </div>
-                        <div>
-                          <h4 className="font-black text-sm">{inq.subject}</h4>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase">From: {inq.enrollments?.personal_info?.firstName || 'Student'}</p>
-                        </div>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${inq.status === 'open' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
-                        {inq.status}
-                      </span>
-                    </div>
-                    <p className="text-gray-500 text-sm mb-6 bg-gray-50 p-4 rounded-2xl font-medium">{inq.message}</p>
-                    <div className="flex justify-end gap-3">
-                      <button 
-                        onClick={async () => {
-                          if (window.confirm('Archive this inquiry? It will be removed from the active list.')) {
-                            const { error } = await supabase.from('inquiries').delete().eq('id', inq.id);
-                            if (!error) {
-                              toast.success('Inquiry archived');
-                              fetchDashboardSpecificData();
-                            } else {
-                              toast.error('Could not archive inquiry');
-                            }
-                          }
-                        }}
-                        className="p-2 text-gray-400 hover:text-red-600 transition-all"
-                      >
-                        <TrashIcon size={16} />
-                      </button>
-                      <button onClick={() => {
-                        setPromptModal({
-                          title: 'Inquiry Response',
-                          fields: [
-                            { name: 'reply', label: 'Your Reply', type: 'textarea', placeholder: 'Enter your response to the student...' }
-                          ],
-                          onSubmit: async (data) => {
-                            if (!data.reply) return;
-                            setIsPromptSubmitting(true);
-                            const { error } = await supabase.from('inquiries').update({ 
-                              admin_reply: data.reply, 
-                              status: 'replied', 
-                              replied_at: new Date().toISOString() 
-                            }).eq('id', inq.id);
-                            
-                            if (!error) {
-                              // Insert persistent notification for the student
-                              await supabase.from('notifications').insert({
-                                user_id: inq.user_id,
-                                message: `New reply from coordinator: "${data.reply.substring(0, 40)}${data.reply.length > 40 ? '...' : ''}"`,
-                                is_read: false
-                              });
-                              toast.success('Reply sent!');
-                              fetchDashboardSpecificData();
-                            } else {
-                              toast.error('Could not send reply');
-                            }
-                            setIsPromptSubmitting(false);
-                            setPromptModal(null);
-                          }
-                        });
-                      }} className="px-6 py-2 bg-red-600 text-white font-black text-[10px] rounded-xl uppercase tracking-widest shadow-lg shadow-red-600/20 active:scale-95 transition-all">Reply</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
 
           {activeSidebarItem === 'users' && (

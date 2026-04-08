@@ -84,6 +84,12 @@ const Contact: React.FC = () => {
   }, {
     question: 'Can I use my ALS certification to continue to higher education?',
     answer: 'Yes, ALS certification through the A&E Test is recognized for admission to the next level of formal education. Elementary level passers can proceed to junior high school, while junior high school level passers can proceed to senior high school.'
+  }, {
+    question: 'How do I know if I am accepted?',
+    answer: 'You can track your application status in real-time by logging into your Student Dashboard.'
+  }, {
+    question: 'Where do I submit my ID and old school records?',
+    answer: 'Once your online application is reviewed, the coordinator will send you a notice via your dashboard regarding when and where to submit your physical requirements.'
   }];
   
   return (
@@ -102,35 +108,34 @@ const Contact: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-12 items-center max-w-7xl mx-auto">
             <div className="md:col-span-3 text-center md:text-left">
               <div className="inline-block px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-sm font-semibold text-[#ffffff] mb-6 border border-white/10">
-                Support & Inquiries
+                Ask Us Anything
               </div>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-black font-display tracking-tight leading-tight">
                 Connect With Us
               </h1>
               <p className="mt-6 text-xl text-blue-100 max-w-2xl leading-relaxed">
-                Get in touch with the Alternative Learning System team in Hamtic,
-                Antique. We're here to guide your educational journey.
+                Have a question? Talk to the ALS team in Hamtic. We'll get back to you as fast as we can.
               </p>
               
               <div className="mt-10 flex flex-wrap justify-center md:justify-start gap-8">
-                <div className="flex flex-col items-center md:items-start group">
-                  <div className="p-3 bg-white/5 rounded-2xl mb-3 group-hover:bg-[#E2231A] transition-colors duration-300">
-                    <PhoneIcon className="h-6 w-6 text-white" />
+                  <div className="flex flex-col items-center md:items-start group">
+                    <div className="p-3 bg-white/5 rounded-2xl mb-3 group-hover:bg-[#E2231A] transition-colors duration-300">
+                      <PhoneIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-blue-100/70 text-sm font-medium tracking-wide uppercase">Call Us</span>
+                    <span className="font-bold text-lg text-white mt-1">
+                      [Insert Official Phone]
+                    </span>
                   </div>
-                  <span className="text-blue-100/70 text-sm font-medium tracking-wide uppercase">Call Us</span>
-                  <span className="font-bold text-lg text-white mt-1">
-                    (+63) 123-456-7890
-                  </span>
-                </div>
-                <div className="flex flex-col items-center md:items-start group">
-                  <div className="p-3 bg-white/5 rounded-2xl mb-3 group-hover:bg-[#E2231A] transition-colors duration-300">
-                    <MailIcon className="h-6 w-6 text-white" />
+                  <div className="flex flex-col items-center md:items-start group">
+                    <div className="p-3 bg-white/5 rounded-2xl mb-3 group-hover:bg-[#E2231A] transition-colors duration-300">
+                      <MailIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-blue-100/70 text-sm font-medium tracking-wide uppercase">Email Us</span>
+                    <span className="font-bold text-lg text-white mt-1">
+                      [Insert Official Email]
+                    </span>
                   </div>
-                  <span className="text-blue-100/70 text-sm font-medium tracking-wide uppercase">Email Us</span>
-                  <span className="font-bold text-lg text-white mt-1">
-                    als.hamtic@deped.gov.ph
-                  </span>
-                </div>
               </div>
             </div>
             
@@ -228,7 +233,7 @@ const Contact: React.FC = () => {
                       <p className="text-gray-600 leading-relaxed">
                         Mon-Fri: <span className="font-medium text-gray-800">8:00 AM - 5:00 PM</span><br />
                         Saturday: <span className="font-medium text-gray-800">8:00 AM - 12:00 PM</span><br />
-                        Sunday/Holidays: <span className="text-[#E2231A] font-medium">Closed</span>
+                        Sunday/Holidays: <span className="text-red-500 font-medium">Closed</span>
                       </p>
                     </div>
                   </div>
@@ -249,7 +254,7 @@ const Contact: React.FC = () => {
                      Send Us a Message
                    </h2>
                    <p className="mt-3 text-lg text-gray-600">
-                     Fill out the form below and our administrative team will reach out promptly.
+                     Fill in the form below and we will reply as soon as we can.
                    </p>
                 </div>
                 
@@ -348,8 +353,12 @@ const Contact: React.FC = () => {
                     </div>
                     
                     <div className="pt-6">
-                       <button type="submit" className="btn-primary w-full sm:w-auto px-10 py-4 flex items-center justify-center text-lg">
-                         Send Message
+                       <button 
+                         type="submit" 
+                         disabled={isSubmitting}
+                         className="btn-primary w-full sm:w-auto px-10 py-4 flex items-center justify-center text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                       >
+                         {isSubmitting ? 'Sending...' : 'Send Message'}
                          <ArrowRightIcon className="ml-3 h-5 w-5" />
                        </button>
                     </div>
@@ -367,10 +376,10 @@ const Contact: React.FC = () => {
         <div className="w-full px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1.5 rounded-full bg-[#0038A8]/10 text-sm font-bold tracking-wider uppercase text-[#0038A8] mb-4">
-              Knowledge Base
+              Common Questions
             </span>
             <h2 className="text-4xl sm:text-5xl font-black text-gray-900 font-display">
-              Frequently Asked Questions
+              Questions People Often Ask
             </h2>
             <div className="h-1.5 w-20 bg-[#E2231A] mx-auto mt-6 rounded-full"></div>
           </div>
@@ -413,11 +422,11 @@ const Contact: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 font-display">Need more help?</h3>
-                <p className="text-gray-600 mt-2 text-lg">Our team is ready to answer any specific questions you may have.</p>
+                <p className="text-gray-600 mt-2 text-lg">Still have a question? Send us a message and we'll help.</p>
               </div>
             </div>
             <button className="btn-primary whitespace-nowrap px-8" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              Contact Support
+              Send a Message
             </button>
           </div>
           

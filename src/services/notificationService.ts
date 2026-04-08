@@ -31,20 +31,4 @@ export const sendStatusEmail = async (
   }
 };
 
-export const sendInquiryReceipt = async (studentName: string, studentEmail: string, subject: string) => {
-    try {
-      const templateParams = {
-        to_name: studentName,
-        to_email: studentEmail,
-        subject: subject,
-        message: 'We have received your inquiry. Our administration will get back to you shortly. Thank you!',
-        reply_to: 'hamtic.als@deped.gov.ph'
-      };
-  
-      await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
-      return true;
-    } catch (error) {
-      console.error('Failed to send receipt email:', error);
-      return false;
-    }
-};
+

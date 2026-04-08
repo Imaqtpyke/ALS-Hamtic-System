@@ -75,7 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             const roleData: UserRole = { role: userData.role, isVerified: currentVerified };
             setUser({ ...firebaseUser, role: roleData });
-            console.log('AuthContext setUser (with role):', { uid: firebaseUser.uid, email: firebaseUser.email, role: userData });
+            if (import.meta.env.DEV) {
+              console.log('AuthContext setUser (with role):', { uid: firebaseUser.uid, email: firebaseUser.email, role: userData });
+            }
           } else {
             // Auto-create user document for new users (default to student)
             const newUser = {
@@ -103,7 +105,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             setUser({ ...firebaseUser, role: { role: 'student', isVerified: firebaseUser.emailVerified || false } });
-            console.log('AuthContext auto-created user:', { uid: firebaseUser.uid, ...newUser });
+            if (import.meta.env.DEV) {
+              console.log('AuthContext auto-created user:', { uid: firebaseUser.uid, ...newUser });
+            }
           }
         } catch (error) {
           console.error('Error in auth state change:', error);
@@ -111,7 +115,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         setUser(null);
-        console.log('User logged out');
+        if (import.meta.env.DEV) {
+          console.log('User logged out');
+        }
       }
       setLoading(false);
     });
@@ -122,7 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearError = () => setError(null);
 
   const login = async (email: string, password: string, isAdmin: boolean) => {
-    console.log('Login function called');
+    if (import.meta.env.DEV) {
+      console.log('Login function called');
+    }
     setLoading(true);
     setError(null);
     try {
@@ -176,7 +184,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userWithRole = { ...userCredential.user, role: { role: userData.role, isVerified: emailVerified } };
       setUser(userWithRole);
       
-      console.log('Login successful:', { uid: userCredential.user.uid, role: userData.role });
+      if (import.meta.env.DEV) {
+        console.log('Login successful:', { uid: userCredential.user.uid, role: userData.role });
+      }
       return userCredential;
     } catch (error) {
       try {
@@ -278,7 +288,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signOut(auth);
       setUser(null);
-      console.log('User logged out');
+      if (import.meta.env.DEV) {
+        console.log('User logged out');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       console.error('Logout error:', errorMessage);

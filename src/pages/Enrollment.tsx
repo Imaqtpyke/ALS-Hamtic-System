@@ -75,13 +75,13 @@ const Enrollment = () => {
       lrn: '' // Learner Reference Number
     },
     educationalBackground: {
-      lastGradeLevel: '',
+      lastGradeLevel: 'Junior High - Grade 7 - 10',
       lastSchoolAttended: '',
       yearLastAttended: '',
       reason: ''
     },
     learningPreferences: {
-      learningStyle: '',
+      learningStyle: 'Reading/Writing',
       preferredSchedule: '',
       preferredLanguage: '',
       accommodation: ''
@@ -95,6 +95,17 @@ const Enrollment = () => {
   const STORAGE_KEY = 'als_enrollment_draft_v1';
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
 
+  const commonAccommodations = [
+    "None",
+    "Visual Impairment Support",
+    "Hearing Impairment Support",
+    "Mobility Assistance",
+    "Learning Disability Support",
+    "Medical/Health Accommodations"
+  ];
+  
+  const [showOtherAccommodation, setShowOtherAccommodation] = useState(false);
+
   // Restore draft on mount
   useEffect(() => {
     if (!ENABLE_DRAFT) return;
@@ -104,6 +115,12 @@ const Enrollment = () => {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
           setFormData(prev => ({ ...prev, ...parsed }));
+          
+          if (parsed.learningPreferences?.accommodation) {
+             if (!commonAccommodations.includes(parsed.learningPreferences.accommodation) && parsed.learningPreferences.accommodation !== 'None') {
+                setShowOtherAccommodation(true);
+             }
+          }
         }
       }
     } catch (e) {
@@ -117,11 +134,10 @@ const Enrollment = () => {
       try {
         const { data, error } = await supabase
           .from('subjects')
-          .select('id, name, active')
+          .select('id, name')
           .order('id', { ascending: true });
         if (error) throw error;
         const active = (data || [])
-          .filter((s: any) => s.active !== false)
           .map((s: any) => ({ id: Number(s.id), name: s.name as string }));
         setAvailableSubjects(active);
       } catch (e) {
@@ -232,13 +248,13 @@ const Enrollment = () => {
             lrn: ''
           },
           educationalBackground: {
-            lastGradeLevel: '',
+            lastGradeLevel: 'Junior High - Grade 7 - 10',
             lastSchoolAttended: '',
             yearLastAttended: '',
             reason: ''
           },
           learningPreferences: {
-            learningStyle: '',
+            learningStyle: 'Reading/Writing',
             preferredSchedule: '',
             preferredLanguage: '',
             accommodation: ''
@@ -347,11 +363,17 @@ const Enrollment = () => {
     }
 
     if (currentStep === 3) {
-      const val = formData.learningPreferences.preferredSchedule;
-      if (!val || !val.trim()) {
+      const schedule = formData.learningPreferences.preferredSchedule;
+      if (!schedule || !schedule.trim()) {
         isValid = false;
         newErrors['preferredSchedule'] = 'Please select a preferred schedule.';
         newTouched['preferredSchedule'] = true;
+      }
+      const language = formData.learningPreferences.preferredLanguage;
+      if (!language || !language.trim()) {
+        isValid = false;
+        newErrors['preferredLanguage'] = 'Please select a preferred language.';
+        newTouched['preferredLanguage'] = true;
       }
     }
 
@@ -797,16 +819,66 @@ const Enrollment = () => {
                   <option value="thursday_hamtic">Thursday - Hamtic Central School CLC (7:30 AM - 4:30 PM)</option>
                   <option value="friday_lapaz">Friday - Lapaz Elementary School CLC (7:30 AM - 4:30 PM)</option>
                 </SelectField>
-                <TextareaField
-                  id="accommodation"
+                <SelectField
+                  id="preferredLanguage"
+                  label="Preferred Language of Instruction"
+                  required
+                  value={formData.learningPreferences.preferredLanguage}
+                  onChange={e => handleChange('learningPreferences', 'preferredLanguage', (e.target as HTMLSelectElement).value)}
+                  error={touched.preferredLanguage ? errors.preferredLanguage : ''}
+                >
+                  <option value="">Select Language</option>
+                  <option value="Kinaray-a">Kinaray-a</option>
+                  <option value="Hiligaynon">Hiligaynon</option>
+                  <option value="Tagalog">Tagalog / Filipino</option>
+                  <option value="English">English</option>
+                </SelectField>
+                <SelectField
+                  id="accommodationSelect"
                   label="Special Accommodations"
                   hint="if any"
-                  rows={3}
-                  placeholder="Please describe any special accommodations you may need (e.g., visual aids, hearing assistance, etc.)"
-                  value={formData.learningPreferences.accommodation}
-                  onChange={e => handleChange('learningPreferences', 'accommodation', (e.target as HTMLTextAreaElement).value)}
-                  error={touched.accommodation ? errors.accommodation : ''}
-                />
+                  value={showOtherAccommodation ? 'Other' : (commonAccommodations.includes(formData.learningPreferences.accommodation) ? formData.learningPreferences.accommodation : (formData.learningPreferences.accommodation ? 'Other' : 'None'))}
+                  onChange={(e) => {
+                    const val = (e.target as HTMLSelectElement).value;
+                    if (val === 'Other') {
+                      setShowOtherAccommodation(true);
+                      if (commonAccommodations.includes(formData.learningPreferences.accommodation) || formData.learningPreferences.accommodation === 'None') {
+                        handleChange('learningPreferences', 'accommodation', '');
+                      }
+                    } else {
+                      setShowOtherAccommodation(false);
+                      handleChange('learningPreferences', 'accommodation', val === 'None' ? '' : val);
+                    }
+                  }}
+                  error=""
+                >
+                  <option value="None">None</option>
+                  {commonAccommodations.filter(opt => opt !== "None").map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                  <option value="Other">Other</option>
+                </SelectField>
+
+                <AnimatePresence>
+                  {showOtherAccommodation && (
+                    <motion.div 
+                      className="mt-4"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <TextareaField
+                        id="accommodation"
+                        label="Please Specify"
+                        rows={3}
+                        placeholder="Please describe any special accommodations you may need (e.g., visual aids, hearing assistance, etc.)"
+                        value={formData.learningPreferences.accommodation}
+                        onChange={e => handleChange('learningPreferences', 'accommodation', (e.target as HTMLTextAreaElement).value)}
+                        error={touched.accommodation ? errors.accommodation : ''}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
                   <div className="flex">
                     <div className="flex-shrink-0">
@@ -826,7 +898,7 @@ const Enrollment = () => {
             {currentStep === 4 && <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Available Subjects</h2>
                 <p className="text-gray-600">
-                  Below are the ALS learning strands available this semester (view-only).
+                  Below are the ALS learning subjects available this semester (view-only).
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {availableSubjects.map(subject => (
