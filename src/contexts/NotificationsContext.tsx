@@ -30,22 +30,41 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   const fetchNotifications = async () => {
     if (!user?.uid || !isSupabaseConfigured) return;
 
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.uid)
-      .order('created_at', { ascending: false })
-      .limit(20);
+    // Firebase UIDs are NOT UUIDs. Supabase's notifications.user_id is uuid typed.
+    // Guard: skip the query entirely if the uid doesn't match UUID v4 format.
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(user.uid)) {
+      if (import.meta.env.DEV) {
+        console.warn('[NotificationsContext] Skipping notifications fetch — user.uid is not a UUID:', user.uid);
+      }
+      return;
+    }
 
-    if (error) {
-      console.error('Error fetching notifications:', error);
-    } else {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.uid)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        // Silently ignore 400 errors (table may not exist yet) and permission errors
+        if (import.meta.env.DEV) {
+          console.warn('[NotificationsContext] Notifications fetch skipped:', error.message);
+        }
+        return;
+      }
       setNotifications(data.map(n => ({
         id: n.id,
         message: n.message,
         createdAt: n.created_at,
         read: n.is_read
       })));
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('[NotificationsContext] Notifications fetch failed silently:', err);
+      }
     }
   };
 

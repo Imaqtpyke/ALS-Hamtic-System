@@ -615,11 +615,16 @@ const AdminDashboard = () => {
                                    fields: [{ name: 'note', label: 'Welcome Note', placeholder: 'e.g. Welcome to ALS-Hamtic!' }],
                                    onSubmit: async (data) => {
                                      setIsPromptSubmitting(true);
-                                     await updateStudent(s.id, { status: 'enrolled' });
-                                     await sendStatusEmail(s.name, s.email, 'enrolled');
-                                     toast.success('Applicant accepted!');
-                                     setPromptModal(null);
-                                     setIsPromptSubmitting(false);
+                                     try {
+                                       await updateStudent(s.id, { status: 'enrolled' });
+                                       await sendStatusEmail(s.name, s.email, 'enrolled');
+                                       toast.success('Applicant accepted!');
+                                       setPromptModal(null);
+                                     } catch (err: any) {
+                                       toast.error(err.message || 'Failed to approve applicant. Please try again.');
+                                     } finally {
+                                       setIsPromptSubmitting(false);
+                                     }
                                    }
                                  });
                                }}
@@ -639,11 +644,16 @@ const AdminDashboard = () => {
                                    fields: [{ name: 'reason', label: 'Missing Info / Issue', placeholder: 'e.g. Birth certificate is blurry' }],
                                    onSubmit: async (data) => {
                                      setIsPromptSubmitting(true);
-                                     await updateStudent(s.id, { status: 'review' });
-                                     await sendStatusEmail(s.name, s.email, 'review', data.reason);
-                                     toast.success('Application marked for review');
-                                     setPromptModal(null);
-                                     setIsPromptSubmitting(false);
+                                     try {
+                                       await updateStudent(s.id, { status: 'review' });
+                                       await sendStatusEmail(s.name, s.email, 'review', data.reason);
+                                       toast.success('Application marked for review');
+                                       setPromptModal(null);
+                                     } catch (err: any) {
+                                       toast.error(err.message || 'Failed to update review status.');
+                                     } finally {
+                                       setIsPromptSubmitting(false);
+                                     }
                                    }
                                  });
                                }}
@@ -663,11 +673,16 @@ const AdminDashboard = () => {
                                    fields: [{ name: 'reason', label: 'Reason for Rejection', placeholder: 'e.g. Ineligible' }],
                                    onSubmit: async (data) => {
                                      setIsPromptSubmitting(true);
-                                     await updateStudent(s.id, { status: 'rejected' });
-                                     await sendStatusEmail(s.name, s.email, 'rejected', data.reason);
-                                     toast.success('Application rejected');
-                                     setPromptModal(null);
-                                     setIsPromptSubmitting(false);
+                                     try {
+                                       await updateStudent(s.id, { status: 'rejected' });
+                                       await sendStatusEmail(s.name, s.email, 'rejected', data.reason);
+                                       toast.success('Application rejected');
+                                       setPromptModal(null);
+                                     } catch (err: any) {
+                                       toast.error(err.message || 'Failed to reject application. Please try again.');
+                                     } finally {
+                                       setIsPromptSubmitting(false);
+                                     }
                                    }
                                  });
                                }}
@@ -741,9 +756,10 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-1 gap-8">
                 <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                   <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-8">Enrollment Status</h3>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={[
+                  <div style={{ width: '100%', minHeight: '300px' }}>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={[
                         { name: 'Enrolled', key: 'enrolled' },
                         { name: 'Pending', key: 'pending' },
                         { name: 'In Review', key: 'review' },
@@ -756,6 +772,7 @@ const AdminDashboard = () => {
                         <Bar dataKey="count" fill="#ef4444" radius={[10, 10, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1117,11 +1134,10 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
                 <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] shrink-0 px-8 py-2 bg-gray-50 rounded-full">Step 3: Learning Preferences</h3>
                 <div className="h-px flex-1 bg-gray-100" />
              </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10">
                 <DataField label="Preferred Learning Style" value={preferences.learningStyle} />
                 <DataField label="Preferred Schedule" value={preferences.preferredSchedule?.replace(/_/g, ' ').toUpperCase()} />
-                <DataField label="Preferred Language" value={preferences.preferredLanguage} />
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                    <DataField label="Special Accommodations" value={preferences.accommodation} />
                 </div>
              </div>

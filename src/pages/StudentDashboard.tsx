@@ -30,7 +30,8 @@ interface EnrollmentRecord {
   };
   learning_preferences: {
     preferredSchedule: string;
-    preferredLanguage: string;
+    learningStyle: string;
+    accommodation: string;
   };
   subjects: Array<{ id: number; name: string }>;
   rejection_reason?: string;

@@ -261,7 +261,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateStudent = async (id: string, updates: Partial<Student>) => {
-    const { error } = await supabase.from('enrollments').update(updates).eq('id', id);
+    // Map only the Supabase-safe column names from the Student type.
+    // Sending unknown keys (like `name`, `progress`, `subjects`) causes a 400 error.
+    // The enrollments table also has a CHECK constraint: status='approved' requires approved_at,
+    // and status='rejected' requires rejected_at — so we must include those timestamps.
+    const supabaseUpdate: Record<string, any> = {};
+    if (updates.status !== undefined) {
+      supabaseUpdate.status = updates.status;
+      if (updates.status === 'enrolled' || updates.status === 'approved') {
+        supabaseUpdate.approved_at = new Date().toISOString();
+      }
+      if (updates.status === 'rejected') {
+        supabaseUpdate.rejected_at = new Date().toISOString();
+      }
+    }
+    if (updates.enrolledSubjects !== undefined) supabaseUpdate.subjects = updates.enrolledSubjects;
+
+    if (Object.keys(supabaseUpdate).length === 0) {
+      console.warn('[DataContext] updateStudent called with no Supabase-mappable fields:', updates);
+      return;
+    }
+
+    const { error } = await supabase.from('enrollments').update(supabaseUpdate).eq('id', id);
     if (error) throw error;
     
     if (user?.uid) {

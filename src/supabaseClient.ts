@@ -43,7 +43,6 @@ type Database = {
           };
           learning_preferences: {
             preferredSchedule: string;
-            preferredLanguage: string;
             accommodation: string | null;
           };
           subjects: Array<{

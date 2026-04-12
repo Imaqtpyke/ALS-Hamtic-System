@@ -68,10 +68,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (userData.isVerified !== currentVerified) {
-              await updateDoc(userRef, {
-                isVerified: currentVerified,
-                updatedAt: new Date().toISOString(),
-              });
+              try {
+                await updateDoc(userRef, {
+                  isVerified: currentVerified,
+                  updatedAt: new Date().toISOString(),
+                });
+              } catch (firestoreErr) {
+                if (import.meta.env.DEV) {
+                  console.warn('[AuthContext] Firestore profile sync skipped (permissions):', firestoreErr);
+                }
+              }
             }
             const roleData: UserRole = { role: userData.role, isVerified: currentVerified };
             setUser({ ...firebaseUser, role: roleData });

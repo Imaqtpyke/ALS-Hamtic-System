@@ -24,7 +24,6 @@ interface EnrollmentApplication {
   };
   learning_preferences: {
     preferredSchedule: string;
-    preferredLanguage: string;
     accommodation: string | null;
   };
   subjects: Array<{
@@ -626,14 +625,10 @@ const PendingApplications = () => {
 
               <div>
                 <h3 className="text-xs font-black text-[#0038A8] uppercase tracking-[0.2em] mb-6">System Preferences</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
                   <div className="bg-gray-50 p-6 rounded-2xl">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Preferred Modality</p>
                     <p className="font-extrabold text-gray-900">{selectedApplication.learning_preferences.preferredSchedule}</p>
-                  </div>
-                  <div className="bg-gray-50 p-6 rounded-2xl">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Language</p>
-                    <p className="font-extrabold text-gray-900">{selectedApplication.learning_preferences.preferredLanguage}</p>
                   </div>
                 </div>
               </div>

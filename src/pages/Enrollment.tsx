@@ -37,7 +37,6 @@ type FormData = {
   learningPreferences: {
     learningStyle: string;
     preferredSchedule: string;
-    preferredLanguage: string;
     accommodation: string;
   };
   subjects: Subject[];
@@ -83,7 +82,6 @@ const Enrollment = () => {
     learningPreferences: {
       learningStyle: 'Reading/Writing',
       preferredSchedule: '',
-      preferredLanguage: '',
       accommodation: ''
     },
     subjects: []
@@ -216,7 +214,6 @@ const Enrollment = () => {
             ...prev.learningPreferences,
             learningStyle: '',
             preferredSchedule: '',
-            preferredLanguage: '',
             accommodation: ''
           }
         };
@@ -256,7 +253,6 @@ const Enrollment = () => {
           learningPreferences: {
             learningStyle: 'Reading/Writing',
             preferredSchedule: '',
-            preferredLanguage: '',
             accommodation: ''
           },
           subjects: []
@@ -351,7 +347,7 @@ const Enrollment = () => {
     }
 
     if (currentStep === 2) {
-      const fields = ['lastSchoolAttended', 'yearLastAttended', 'reason'];
+      const fields = ['lastSchoolAttended', 'yearLastAttended'];
       fields.forEach(field => {
         const val = String(formData.educationalBackground[field as keyof typeof formData.educationalBackground] || '');
         if (!val.trim()) {
@@ -368,12 +364,6 @@ const Enrollment = () => {
         isValid = false;
         newErrors['preferredSchedule'] = 'Please select a preferred schedule.';
         newTouched['preferredSchedule'] = true;
-      }
-      const language = formData.learningPreferences.preferredLanguage;
-      if (!language || !language.trim()) {
-        isValid = false;
-        newErrors['preferredLanguage'] = 'Please select a preferred language.';
-        newTouched['preferredLanguage'] = true;
       }
     }
 
@@ -785,9 +775,9 @@ const Enrollment = () => {
                 </div>
                 <div>
                   <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
-                    Reason for Stopping/Not Continuing Formal Education
+                    Reason for Stopping/Not Continuing Formal Education (optional)
                   </label>
-                  <textarea id="reason" value={formData.educationalBackground.reason} onChange={e => handleChange('educationalBackground', 'reason', e.target.value)} rows={3} className={`mt-1 block w-full border ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500`} required />
+                  <textarea id="reason" value={formData.educationalBackground.reason} onChange={e => handleChange('educationalBackground', 'reason', e.target.value)} rows={3} className={`mt-1 block w-full border ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500`} />
                   {errors.reason && touched.reason && <p className="text-red-500 text-xs mt-1">{errors.reason}</p>}
                 </div>
               </div>}
@@ -818,20 +808,6 @@ const Enrollment = () => {
                   <option value="wednesday_bongbongan">Wednesday - Bongbongan II Elementary School CLC (7:30 AM - 4:30 PM)</option>
                   <option value="thursday_hamtic">Thursday - Hamtic Central School CLC (7:30 AM - 4:30 PM)</option>
                   <option value="friday_lapaz">Friday - Lapaz Elementary School CLC (7:30 AM - 4:30 PM)</option>
-                </SelectField>
-                <SelectField
-                  id="preferredLanguage"
-                  label="Preferred Language of Instruction"
-                  required
-                  value={formData.learningPreferences.preferredLanguage}
-                  onChange={e => handleChange('learningPreferences', 'preferredLanguage', (e.target as HTMLSelectElement).value)}
-                  error={touched.preferredLanguage ? errors.preferredLanguage : ''}
-                >
-                  <option value="">Select Language</option>
-                  <option value="Kinaray-a">Kinaray-a</option>
-                  <option value="Hiligaynon">Hiligaynon</option>
-                  <option value="Tagalog">Tagalog / Filipino</option>
-                  <option value="English">English</option>
                 </SelectField>
                 <SelectField
                   id="accommodationSelect"

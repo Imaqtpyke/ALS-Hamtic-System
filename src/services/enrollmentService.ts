@@ -22,7 +22,6 @@ export interface EnrollmentForm {
   learningPreferences: {
     learningStyle: string;
     preferredSchedule: string;
-    preferredLanguage: string;
     accommodation: string;
   };
   subjects: Array<{ id: number; name: string }>;
@@ -55,7 +54,6 @@ export const submitEnrollment = async (formData: EnrollmentForm) => {
       learning_preferences: {
         learningStyle: formData.learningPreferences.learningStyle,
         preferredSchedule: formData.learningPreferences.preferredSchedule,
-        preferredLanguage: formData.learningPreferences.preferredLanguage,
         accommodation: formData.learningPreferences.accommodation
       },
       subjects: formData.subjects,
