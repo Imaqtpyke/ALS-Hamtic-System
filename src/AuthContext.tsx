@@ -22,7 +22,7 @@ interface AuthContextType {
   user: (FirebaseUser & { role?: UserRole }) | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string, isAdmin: boolean) => Promise<UserCredential>;
+  login: (email: string, password: string, isAdmin?: boolean) => Promise<UserCredential>;
   loginWithGoogle: () => Promise<UserCredential>;
   register: (email: string, password: string, displayName: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearError = () => setError(null);
 
-  const login = async (email: string, password: string, isAdmin: boolean) => {
+  const login = async (email: string, password: string, _isAdmin?: boolean) => {
     if (import.meta.env.DEV) {
       console.log('Login function called');
     }
@@ -159,18 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         userDoc = await getDoc(userRef);
       }
-       
+
       const userData = userDoc.data() as UserRole;
-
-      if (isAdmin && userData.role !== 'admin') {
-        await signOut(auth);
-        throw new Error('Access denied. Admin login required.');
-      }
-
-      if (!isAdmin && userData.role !== 'student') {
-        await signOut(auth);
-        throw new Error('Access denied. Student login required.');
-      }
 
       // Enforce verification for students only; admins may sign in without email verification
       if (userData.role === 'student' && !emailVerified) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { useAuth } from '../AuthContext';
 import { Link } from 'react-router-dom';
@@ -6,7 +6,7 @@ import {
   CheckCircleIcon, 
   ClockIcon, 
   AlertCircleIcon, 
-  BellIcon, 
+  MegaphoneIcon, 
   BookOpenIcon, 
   CalendarIcon, 
   UserIcon,
@@ -46,14 +46,6 @@ interface EnrollmentRecord {
   }>;
 }
 
-type UnifiedNotification = {
-  id: string;
-  type: 'global' | 'personal';
-  title: string;
-  message: string;
-  date: string;
-  priority: 'low' | 'medium' | 'high';
-};
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -142,27 +134,13 @@ const StudentDashboard = () => {
     }
   };
 
-  const unifiedNotifications = useMemo<UnifiedNotification[]>(() => {
-    const globalNotifs: UnifiedNotification[] = announcements.map((a: any) => ({
-      id: `global-${a.id}`,
-      type: 'global',
-      title: a.title,
-      message: a.message,
-      date: a.date || a.created_at || new Date().toISOString(),
-      priority: (a.priority || 'medium') as 'low' | 'medium' | 'high'
-    }));
-
-    const personalNotifs: UnifiedNotification[] = (enrollment?.status_history || []).map((h, i) => ({
-      id: `personal-${i}`,
-      type: 'personal',
-      title: `Application Status: ${h.status.toUpperCase()}`,
-      message: h.notes || `Your application status was updated to ${h.status}.`,
-      date: h.date,
-      priority: h.status === 'rejected' ? 'high' : (['enrolled', 'approved'].includes(h.status) ? 'high' : 'medium')
-    }));
-
-    return [...globalNotifs, ...personalNotifs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [announcements, enrollment?.status_history]);
+  const scheduleDisplay = (raw: string) => {
+    // e.g. "MONDAY_HAMTIC" -> "Monday - Hamtic"
+    return raw
+      .split('_')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' - ');
+  };
 
   const StatusTracker = ({ status, reason }: { status: string, reason?: string }) => {
     const steps = [
@@ -331,29 +309,26 @@ const StudentDashboard = () => {
             ) : (
               /* Admitted Student Portal View */
               <div className="space-y-8">
-                {/* Student ID Card Overlay (already exists in original code) */}
+                {/* Welcome Card */}
                 <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="bg-[#0038A8] px-8 py-4 flex items-center justify-between">
-                    <span className="text-[10px] font-black text-white/60 tracking-widest uppercase">Official Learner Dossier</span>
-                    <span className="text-[10px] font-black text-white tracking-widest uppercase bg-white/10 px-3 py-1 rounded-full border border-white/20">Active Enrollment</span>
-                  </div>
                   <div className="p-8 flex flex-col md:flex-row gap-8 items-center">
-                    <div className="w-32 h-32 rounded-3xl bg-gray-50 flex items-center justify-center text-[#0038A8] relative overflow-hidden shrink-0 border-4 border-gray-50">
-                      <UserIcon className="w-16 h-16" />
-                      <div className="absolute inset-0 bg-gradient-to-tr from-[#0038A8]/5 to-transparent"></div>
+                    <div className="w-24 h-24 rounded-3xl bg-blue-50 flex items-center justify-center text-[#0038A8] shrink-0">
+                      <UserIcon className="w-12 h-12" />
                     </div>
                     <div className="flex-1 text-center md:text-left">
-                      <p className="text-[10px] font-black text-[#0038A8] uppercase tracking-widest mb-1">Student Admitted ID</p>
-                      <h3 className="text-3xl font-black text-gray-900 font-display">STU-{enrollment.id.substring(0, 8).toUpperCase()}</h3>
-                      <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-8">
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Program</p>
-                          <p className="font-bold text-gray-700">Junior High - ALS</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Center</p>
-                          <p className="font-bold text-gray-700">Hamtic Central CLC</p>
-                        </div>
+                      <h3 className="text-2xl font-black text-gray-900 font-display">
+                        {enrollment.personal_info.firstName} {enrollment.personal_info.lastName}
+                      </h3>
+                      <div className="mt-2 flex flex-wrap justify-center md:justify-start gap-3 items-center">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-black uppercase tracking-widest">
+                          <CheckCircleIcon className="w-3.5 h-3.5" />
+                          Enrolled
+                        </span>
+                        {enrollment.approved_at && (
+                          <span className="text-xs text-gray-500 font-medium">
+                            Approved on {new Date(enrollment.approved_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -368,7 +343,7 @@ const StudentDashboard = () => {
                     <div>
                       <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-3">Your Schedule</h4>
                       <p className="text-gray-600 font-bold leading-relaxed">
-                        {enrollment.learning_preferences.preferredSchedule.replace('_', ' ').toUpperCase()}
+                        {scheduleDisplay(enrollment.learning_preferences.preferredSchedule)}
                       </p>
                       <p className="text-xs text-gray-500 mt-2 italic">* Please coordinate with your teacher for room assignment.</p>
                     </div>
@@ -394,16 +369,16 @@ const StudentDashboard = () => {
           {/* Right Sidebar: Notice Board */}
           <div className="space-y-8">
             <div className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-8">
-                <BellIcon className="w-6 h-6 text-[#0038A8]" />
-                <h3 className="text-xl font-black text-gray-900 font-display">Notifications</h3>
+            <div className="flex items-center gap-3 mb-8">
+                <MegaphoneIcon className="w-6 h-6 text-[#0038A8]" />
+                <h3 className="text-xl font-black text-gray-900 font-display">Announcements</h3>
               </div>
 
               <div className="space-y-6">
-                {unifiedNotifications.length === 0 ? (
-                  <p className="text-center text-gray-500 text-sm py-10 font-medium italic">No notifications today.</p>
+                {announcements.length === 0 ? (
+                  <p className="text-center text-gray-500 text-sm py-10 font-medium italic">No announcements at this time.</p>
                 ) : (
-                  unifiedNotifications.map((item) => (
+                  announcements.map((item: any) => (
                     <motion.div 
                       key={item.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -415,14 +390,11 @@ const StudentDashboard = () => {
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-3">
-                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                           item.type === 'global' ? 'bg-gray-200 text-gray-600' : 
-                           item.priority === 'high' ? 'bg-red-200 text-red-800' : 'bg-blue-200 text-blue-800'
-                         }`}>
-                            {item.type === 'global' ? 'Global Notice' : 'Status Update'}
+                         <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-gray-200 text-gray-600">
+                           Announcement
                          </span>
                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                           {new Date(item.date).toLocaleDateString()}
+                           {new Date(item.date || item.created_at || new Date()).toLocaleDateString()}
                          </span>
                       </div>
                       <h4 className="font-black text-gray-900 text-lg mb-2 leading-tight">{item.title}</h4>

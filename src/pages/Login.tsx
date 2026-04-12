@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, AlertCircle, User, ChevronLeft as ChevronLeftIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
@@ -7,8 +6,6 @@ import { toast } from 'react-hot-toast';
 
 const Login = () => {
   const { login, loginWithGoogle, register, resendVerification, resetPassword, error: authError, clearError } = useAuth();
-  const location = useLocation();
-  const isAdminRoute = location.pathname.startsWith('/admin');
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -21,10 +18,6 @@ const Login = () => {
   const [isRegister, setIsRegister] = useState(false);
   const [resending, setResending] = useState(false);
   const [resetting, setResetting] = useState(false);
-  useEffect(() => {
-    if (isAdminRoute && isRegister) setIsRegister(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdminRoute]);
 
   // Get redirect path from location state or default to home
   // Removed unused 'from' variable as navigation is now handled by AuthProvider
@@ -62,8 +55,7 @@ const Login = () => {
         toast.success('Registration successful! A verification email has been sent. Please verify your email before logging in.');
         setIsRegister(false); // Switch to login form after registration
       } else {
-        // Enforce admin login only on /admin/login route
-        await login(formData.email, formData.password, isAdminRoute);
+        await login(formData.email, formData.password);
         // Navigation will happen automatically via the AuthProvider's onAuthStateChanged
       }
     } catch (err: any) {
@@ -120,23 +112,11 @@ const Login = () => {
         <div className="text-center mb-6">
           <img className="h-16 w-auto mx-auto" src="/DepED-Logo.jpg" alt="DEPED Logo" />
           <h1 className="mt-4 text-3xl font-bold text-gray-900">
-            {isAdminRoute ? 'Admin Panel' : 'ALS Enrollment System'}
+            ALS Enrollment System
           </h1>
           <p className="mt-2 text-gray-600">
-            {isAdminRoute
-              ? 'Admin / Staff sign in'
-              : isRegister
-                ? 'Register a new account'
-                : 'Sign in to your account'}
+            {isRegister ? 'Register a new account' : 'Sign in to your account'}
           </p>
-          {!isAdminRoute && (
-            <p className="mt-2 text-sm text-gray-600">
-              Admin / Staff?{' '}
-              <a href="/admin/login" className="font-medium text-red-600 hover:text-red-500">
-                Go to Admin Login
-              </a>
-            </p>
-          )}
         </div>
         <div className="bg-white/95 rounded-xl border border-blue-100 shadow-2xl ring-1 ring-black/5 p-6 md:p-8">
           {/* Admin toggle removed: admin login is only accessible via /admin/login */}
@@ -237,8 +217,8 @@ const Login = () => {
               </button>
             </div>
           </form>
-          {/* Google Sign In Button for Student Login only */}
-          {!isRegister && !isAdminRoute && (
+          {/* Google Sign In Button */}
+          {!isRegister && (
             <div className="mt-4">
               <button
                 type="button"
@@ -267,16 +247,14 @@ const Login = () => {
                   Sign in
                 </button>
               </p>
-            ) : (!isAdminRoute && (
-              <>
-                <p>
-                  Don't have an account?{' '}
-                  <button className="font-medium text-red-600 hover:text-red-500" onClick={() => setIsRegister(true)}>
-                    Register
-                  </button>
-                </p>
-              </>
-            ))}
+            ) : (
+              <p>
+                Don't have an account?{' '}
+                <button className="font-medium text-red-600 hover:text-red-500" onClick={() => setIsRegister(true)}>
+                  Register
+                </button>
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-8 text-center">

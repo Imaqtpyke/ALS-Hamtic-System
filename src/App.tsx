@@ -16,13 +16,12 @@ const Enrollment = lazy(() => import('./pages/Enrollment'));
 const About = lazy(() => import('./pages/About'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Login = lazy(() => import('./pages/Login'));
-const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 const AppContent = () => {
   const location = useLocation();
-  const isAuthPage = ['/login', '/admin/login'].includes(location.pathname);
+  const isAuthPage = ['/login'].includes(location.pathname);
   const { user, loading } = useAuth();
   
   // Clean up any console logs in production
@@ -67,13 +66,7 @@ const AppContent = () => {
                   : <Navigate to="/enrollment" />
                 : <Login />
             } />
-            <Route path="/admin/login" element={
-              user
-                ? user.role?.role === 'admin'
-                  ? <Navigate to="/admin" />
-                  : <Navigate to="/enrollment" />
-                : <AdminLogin />
-            } />
+            <Route path="/admin/login" element={<Navigate to="/login" replace />} />
             
             {/* Public routes */}
             <Route path="/" element={<Home />} />
