@@ -14,7 +14,11 @@ import {
   PhoneIcon,
   MapPinIcon,
   Loader2Icon,
-  MailIcon
+  MailIcon,
+  GraduationCapIcon,
+  BrainIcon,
+  EyeOffIcon,
+  InfoIcon
 } from 'lucide-react';
 import { useDataContext } from '../DataContext';
 import { motion } from 'framer-motion';
@@ -27,6 +31,20 @@ interface EnrollmentRecord {
     firstName: string;
     lastName: string;
     middleName?: string;
+    birthdate: string;
+    gender: string;
+    address: string;
+    addressBarangay: string;
+    addressCity: string;
+    addressProvince: string;
+    phone: string;
+    email: string;
+  };
+  educational_background: {
+    lastGradeLevel: string;
+    lastSchoolAttended: string;
+    yearLastAttended: string;
+    reason: string;
   };
   learning_preferences: {
     preferredSchedule: string;
@@ -50,7 +68,7 @@ interface EnrollmentRecord {
 const StudentDashboard = () => {
   const { user } = useAuth();
   const [enrollment, setEnrollment] = useState<EnrollmentRecord | null>(null);
-  const { profiles, announcements } = useDataContext();
+  const { profiles, announcements, subjects } = useDataContext();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
@@ -135,11 +153,19 @@ const StudentDashboard = () => {
   };
 
   const scheduleDisplay = (raw: string) => {
-    // e.g. "MONDAY_HAMTIC" -> "Monday - Hamtic"
-    return raw
-      .split('_')
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(' - ');
+    const schedules: Record<string, string> = {
+      'monday_hamtic': 'Monday - Hamtic Central School CLC (7:00 AM - 4:30 PM)',
+      'tuesday_hamtic': 'Tuesday - Hamtic Central School CLC (7:30 AM - 4:30 PM)',
+      'wednesday_bongbongan': 'Wednesday - Bongbongan II Elementary School CLC (7:30 AM - 4:30 PM)',
+      'thursday_hamtic': 'Thursday - Hamtic Central School CLC (7:30 AM - 4:30 PM)',
+      'friday_lapaz': 'Friday - Lapaz Elementary School CLC (7:30 AM - 4:30 PM)',
+    };
+
+    const key = raw.toLowerCase();
+    if (schedules[key]) return schedules[key];
+
+    // Fallback for unrecognized values
+    return raw.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   };
 
   const StatusTracker = ({ status, reason }: { status: string, reason?: string }) => {
@@ -271,17 +297,20 @@ const StudentDashboard = () => {
             </div>
 
             {/* Tab Navigation */}
-            {enrollment && enrollment.status === 'enrolled' && (
-              <div className="flex gap-4 mb-8 bg-gray-100 p-1.5 rounded-2xl w-fit">
-                {['overview'].map((tab) => (
+            {enrollment && (enrollment.status === 'enrolled' || enrollment.status === 'approved') && (
+              <div className="flex gap-2 mb-8 bg-gray-100 p-1.5 rounded-2xl w-fit">
+                {[
+                  { id: 'overview', label: 'Overview' },
+                  { id: 'profile', label: 'My Profile' },
+                ].map((tab) => (
                   <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
                     className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                      activeTab === tab ? 'bg-white text-[#0038A8] shadow-sm' : 'text-gray-500 hover:text-gray-600'
+                      activeTab === tab.id ? 'bg-white text-[#0038A8] shadow-sm' : 'text-gray-500 hover:text-gray-600'
                     }`}
                   >
-                    {tab}
+                    {tab.label}
                   </button>
                 ))}
               </div>
@@ -324,6 +353,10 @@ const StudentDashboard = () => {
                           <CheckCircleIcon className="w-3.5 h-3.5" />
                           Enrolled
                         </span>
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white rounded-xl">
+                          <BookOpenIcon size={14} className="opacity-80" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">{subjects.length} Subjects</span>
+                        </div>
                         {enrollment.approved_at && (
                           <span className="text-xs text-gray-500 font-medium">
                             Approved on {new Date(enrollment.approved_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -334,34 +367,161 @@ const StudentDashboard = () => {
                   </div>
                 </div>
 
-                {/* Grid Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-start gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-[#0038A8] shrink-0">
-                      <CalendarIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-3">Your Schedule</h4>
-                      <p className="text-gray-600 font-bold leading-relaxed">
-                        {scheduleDisplay(enrollment.learning_preferences.preferredSchedule)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2 italic">* Please coordinate with your teacher for room assignment.</p>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-start gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                      <BookOpenIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-3">Enrolled Subjects</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {enrollment.subjects?.map((s, i) => (
-                           <span key={i} className="px-3 py-1 bg-gray-50 text-gray-700 text-[10px] font-bold rounded-lg border border-gray-100">{s.name}</span>
-                        )) || <p className="text-gray-500 text-sm">Not assigned yet</p>}
+                {/* ── OVERVIEW TAB ── */}
+                {activeTab === 'overview' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Card 1: Schedule */}
+                      <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-start gap-5">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-[#0038A8] shrink-0">
+                          <CalendarIcon className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-3">My Schedule</h4>
+                          <p className="text-gray-700 font-bold leading-relaxed">
+                            {scheduleDisplay(enrollment.learning_preferences.preferredSchedule)}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2 italic">* Please coordinate with your teacher for room assignment.</p>
+                        </div>
+                      </div>
+
+                      {/* Card 2: Subjects */}
+                      <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-start gap-5">
+                        <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+                          <BookOpenIcon className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-3">Enrolled Subjects</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {subjects.length > 0 ? (
+                               subjects.map((s, i) => (
+                                  <span key={i} className="px-3 py-1 bg-gray-50 text-gray-700 text-[10px] font-bold rounded-lg border border-gray-100 uppercase">{s.name}</span>
+                               ))
+                            ) : (
+                               <p className="text-gray-500 font-bold italic">Curriculum being finalized</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* ── MY PROFILE TAB ── */}
+                {activeTab === 'profile' && (
+                  <div className="space-y-6">
+                    {/* Card 3: Learning Preferences */}
+                    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-start gap-5">
+                      <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+                        <BrainIcon className="w-6 h-6" />
+                      </div>
+                      <div className="w-full">
+                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-4">Learning Preferences</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Preferred Learning Style</p>
+                            <p className="font-bold text-gray-700">{enrollment.learning_preferences.learningStyle || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Special Accommodations</p>
+                            <p className="font-bold text-gray-700">{enrollment.learning_preferences.accommodation || 'None'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card 4: Educational Background */}
+                    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-start gap-5">
+                      <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
+                        <GraduationCapIcon className="w-6 h-6" />
+                      </div>
+                      <div className="w-full">
+                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-4">Educational Background</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Last Grade Level Completed</p>
+                            <p className="font-bold text-gray-700 uppercase">{enrollment.educational_background?.lastGradeLevel || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Last School Attended</p>
+                            <p className="font-bold text-gray-700 uppercase">{enrollment.educational_background?.lastSchoolAttended || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Year Last Attended</p>
+                            <p className="font-bold text-gray-700">{enrollment.educational_background?.yearLastAttended || '—'}</p>
+                          </div>
+                        </div>
+                        {enrollment.educational_background?.reason && (
+                          <div className="pt-4 border-t border-gray-50">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Reason for leaving school</p>
+                            <p className="text-gray-700 font-medium italic bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                              "{enrollment.educational_background.reason}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card 5: Personal Details */}
+                    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-start gap-5">
+                      <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 shrink-0">
+                        <UserIcon className="w-6 h-6" />
+                      </div>
+                      <div className="w-full">
+                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-4">Personal Details</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Full Name</p>
+                            <p className="font-bold text-gray-700 uppercase">
+                              {enrollment.personal_info.firstName}{enrollment.personal_info.middleName ? ` ${enrollment.personal_info.middleName}` : ''} {enrollment.personal_info.lastName}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Gender</p>
+                            <p className="font-bold text-gray-700 uppercase">{enrollment.personal_info.gender || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Birthdate</p>
+                            <p className="font-bold text-gray-700">
+                              {enrollment.personal_info.birthdate
+                                ? new Date(enrollment.personal_info.birthdate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                                : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Address</p>
+                            <p className="font-bold text-gray-700 uppercase leading-snug">
+                              {[enrollment.personal_info.addressBarangay, enrollment.personal_info.addressCity, enrollment.personal_info.addressProvince].filter(Boolean).join(', ') || '—'}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <EyeOffIcon className="w-3 h-3 text-gray-400" />
+                              <span className="text-[9px] text-gray-400 font-medium tracking-tight">Only visible to you</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Contact Number</p>
+                            <p className="font-bold text-gray-700">{enrollment.personal_info.phone || '—'}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <EyeOffIcon className="w-3 h-3 text-gray-400" />
+                              <span className="text-[9px] text-gray-400 font-medium tracking-tight">Only visible to you</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Email Address</p>
+                            <p className="font-bold text-gray-700">{enrollment.personal_info.email || '—'}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <EyeOffIcon className="w-3 h-3 text-gray-400" />
+                              <span className="text-[9px] text-gray-400 font-medium tracking-tight">Only visible to you</span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="mt-8 text-[10px] text-gray-400 font-medium italic border-t border-gray-50 pt-4">
+                          To update your information, please contact your ALS coordinator directly.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
