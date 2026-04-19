@@ -4,7 +4,6 @@ import { useAuth } from '../AuthContext';
 import { Link } from 'react-router-dom';
 import { 
   CheckCircleIcon, 
-  ClockIcon, 
   AlertCircleIcon, 
   MegaphoneIcon, 
   BookOpenIcon, 
@@ -18,7 +17,7 @@ import {
   GraduationCapIcon,
   BrainIcon,
   EyeOffIcon,
-  InfoIcon
+  MessageCircleIcon
 } from 'lucide-react';
 import { useDataContext } from '../DataContext';
 import { motion } from 'framer-motion';
@@ -74,6 +73,7 @@ const StudentDashboard = () => {
   const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState('');
+  const [unreadMessage, setUnreadMessage] = useState<any>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -103,7 +103,7 @@ const StudentDashboard = () => {
           schema: 'public', 
           table: 'announcements' 
         }, (payload) => {
-          toast.success(`New Notice: ${payload.new.title}`, { icon: '📢' });
+          toast.success(`New Announcement: ${payload.new.title}`, { icon: '📢' });
           fetchDashboardData();
         })
         .subscribe();
@@ -143,6 +143,22 @@ const StudentDashboard = () => {
         setIsAccountBlocked(true);
         setBlockReason(userProfile.block_reason || 'No reason provided');
       }
+
+      // Fetch unread message for banner (only if pending)
+      let msgData = null;
+      if (enrollData?.status === 'pending') {
+        const { data } = await supabase
+          .from('admin_messages')
+          .select('*')
+          .eq('user_id', user?.uid)
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        msgData = data;
+      }
+      
+      setUnreadMessage(msgData);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       toast.error('Failed to load dashboard data');
@@ -171,10 +187,9 @@ const StudentDashboard = () => {
   const StatusTracker = ({ status, reason }: { status: string, reason?: string }) => {
     const steps = [
       { id: 'submitted', label: 'Received', icon: <MailIcon className="w-5 h-5" />, completed: true },
-      { id: 'review', label: 'Being Checked', icon: <ClockIcon className="w-5 h-5" />, completed: status !== 'rejected' },
       { id: 'final', label: status === 'approved' || status === 'enrolled' ? 'Approved' : status === 'rejected' ? 'Not Accepted' : 'Result', 
         icon: status === 'approved' || status === 'enrolled' ? <CheckCircleIcon className="w-5 h-5" /> : status === 'rejected' ? <AlertCircleIcon className="w-5 h-5" /> : <ChevronRightIcon className="w-5 h-5" />, 
-        completed: status !== 'pending' && status !== 'review',
+        completed: status !== 'pending',
         active: status !== 'pending'
       }
     ];
@@ -278,7 +293,47 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] pt-8 pb-12">
+    <div className="min-h-screen bg-[#F9F9F9] pt-8 pb-12 text-sans">
+      {/* Action Required Banner */}
+      {enrollment?.status === 'pending' && unreadMessage && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 border-2 border-amber-200 p-6 rounded-[32px] shadow-sm relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-4">
+              <div className="w-3 h-3 bg-amber-500 rounded-full animate-ping" />
+            </div>
+            
+            <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
+              <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
+                <MessageCircleIcon className="w-7 h-7" />
+              </div>
+              
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-lg font-black text-amber-900 uppercase tracking-tight mb-1">Action Required</h3>
+                <p className="text-amber-800 font-bold text-sm leading-relaxed max-w-2xl">
+                  Admin: "{unreadMessage.message}"
+                </p>
+                <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest mt-2">
+                  Please update your application to proceed with enrollment.
+                </p>
+              </div>
+
+              <Link 
+                to="/enrollment" 
+                className="px-8 py-3 bg-amber-600 text-white font-black rounded-2xl hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 active:scale-95 text-xs uppercase tracking-widest whitespace-nowrap"
+              >
+                Update My Application
+              </Link>
+            </div>
+
+            {/* Decorative Pulse Background */}
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-amber-100/50 rounded-full blur-3xl -z-0"></div>
+          </motion.div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -526,7 +581,7 @@ const StudentDashboard = () => {
             )}
           </div>
 
-          {/* Right Sidebar: Notice Board */}
+          {/* Right Sidebar: Announcements Board */}
           <div className="space-y-8">
             <div className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-8">

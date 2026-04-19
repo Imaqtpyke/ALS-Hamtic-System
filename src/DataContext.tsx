@@ -2,9 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { toast } from 'react-hot-toast';
 import { useAuth } from './AuthContext';
-import { logAuditAction } from './utils/auditLogger';
 import { db } from './firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 
 // Types
 export type Student = {
@@ -17,6 +16,7 @@ export type Student = {
   subjects: number;
   status: string;
   progress: number;
+  is_resubmission?: boolean;
   enrolledSubjects?: string[];
   profileUrl?: string;
   certificates?: string[];
@@ -49,15 +49,6 @@ export type UserProfile = {
   created_at: string;
 };
 
-export type AuditLog = {
-  id: string;
-  admin_id: string;
-  action: string;
-  target_type: string;
-  target_id: string;
-  details: any;
-  created_at: string;
-};
 
 interface DataContextType {
   students: Student[];
@@ -79,13 +70,7 @@ interface DataContextType {
   
   // User Management
   profiles: UserProfile[];
-  blockUser: (id: string, reason: string) => Promise<void>;
-  unblockUser: (id: string) => Promise<void>;
-  updateProfile: (id: string, updates: Partial<UserProfile>) => Promise<void>;
-  deleteUserAccount: (id: string) => Promise<void>;
-
-  // Audit Logs
-  auditLogs: AuditLog[];
+  sendAdminMessage: (enrollmentId: string, userId: string, message: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -96,7 +81,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +93,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      const [enrollRes, subRes, annRes, profRes, logRes] = await Promise.all([
+      const [enrollRes, subRes, annRes, profRes] = await Promise.all([
         supabase.from('enrollments').select('*').order('submitted_at', { ascending: false }),
         supabase.from('subjects').select('*'),
         supabase.from('announcements').select('*').order('created_at', { ascending: false }),
@@ -133,14 +117,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.warn('User Profile syncing deferred or restricted:', e);
             return { data: [], error: null };
           }
-        })(),
-        supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50)
+        })()
       ]);
 
       if (enrollRes.error) throw enrollRes.error;
       if (subRes.error) throw subRes.error;
       if (annRes.error) throw annRes.error;
-      if (logRes.error && (logRes.error as any).code !== 'PGRST205') throw logRes.error;
 
       // Map enrollments to Student type with defensive coding
       const mappedStudents: Student[] = (enrollRes.data || []).map((e: any) => {
@@ -154,6 +136,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           subjects: e.subjects?.length || 0,
           status: e.status || 'pending',
           progress: e.status === 'graduated' ? 100 : (e.status === 'enrolled' ? 60 : 10),
+          is_resubmission: e.is_resubmission || false,
           enrolledSubjects: e.subjects?.map((s: any) => s.name) || [],
           role: 'student',
           fullData: e // Store original payload
@@ -207,7 +190,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       setProfiles(Array.from(profileMap.values()));
-      setAuditLogs(logRes.data as AuditLog[] || []);
       
     } catch (err: any) {
       console.error('Data Fetch Error:', err);
@@ -241,9 +223,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fetchAllData();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-          fetchAllData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => {
           fetchAllData();
         })
         .subscribe();
@@ -285,12 +264,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error } = await supabase.from('enrollments').update(supabaseUpdate).eq('id', id);
     if (error) throw error;
     
-    if (user?.uid) {
-      let action: any = 'edit_enrollment';
-      if (updates.status === 'enrolled') action = 'approve_enrollment';
-      if (updates.status === 'rejected') action = 'reject_enrollment';
-      logAuditAction(user.uid, action, 'enrollment', id, updates);
-    }
     
     fetchAllData();
   };
@@ -298,11 +271,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteStudent = async (id: string) => {
     const { error } = await supabase.from('enrollments').delete().eq('id', id);
     if (error) throw error;
-    fetchAllData();
+    setStudents(prev => prev.filter(s => s.id !== id));
   };
 
-  const addSubject = async (sub: Omit<Subject, 'id'>) => {
-    const { error } = await supabase.from('subjects').insert(sub);
+  const sendAdminMessage = async (enrollmentId: string, userId: string, message: string) => {
+    const { error } = await supabase
+      .from('admin_messages')
+      .insert([{
+        enrollment_id: enrollmentId,
+        user_id: userId,
+        message: message,
+        is_read: false
+      }]);
+
+    if (error) {
+      console.error('Error sending admin message:', error);
+      throw error;
+    }
+    
+    // Refresh to ensure any local state dependent on messages is updated if necessary
+    // (though students usually see this, not admins)
+    await fetchAllData();
+  };
+
+  const addSubject = async (subject: Omit<Subject, 'id'>) => {
+    const { error } = await supabase.from('subjects').insert(subject);
     if (error) throw error;
     fetchAllData();
   };
@@ -322,21 +315,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addAnnouncement = async (ann: Omit<Announcement, 'id' | 'date'>) => {
     const { error } = await supabase.from('announcements').insert(ann);
     if (error) throw error;
-    if (user?.uid) logAuditAction(user.uid, 'create_announcement', 'announcement', 'new', ann);
     fetchAllData();
   };
 
   const updateAnnouncement = async (id: string, updates: Partial<Announcement>) => {
     const { error } = await supabase.from('announcements').update(updates).eq('id', id);
     if (error) throw error;
-    if (user?.uid) logAuditAction(user.uid, 'edit_announcement', 'announcement', id, updates);
     fetchAllData();
   };
 
   const deleteAnnouncement = async (id: string) => {
     const { error } = await supabase.from('announcements').delete().eq('id', id);
     if (error) throw error;
-    if (user?.uid) logAuditAction(user.uid, 'delete_announcement', 'announcement', id);
     fetchAllData();
   };
 
@@ -353,6 +343,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addStudent,
       updateStudent,
       deleteStudent,
+      sendAdminMessage,
       addSubject,
       updateSubject,
       deleteSubject,
@@ -361,78 +352,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deleteAnnouncement,
       // User Management
       profiles,
-      blockUser: async (id, reason) => {
-        let firebaseSuccess = false;
-        try {
-          const userRef = doc(db, 'users', id);
-          await updateDoc(userRef, { is_blocked: true, block_reason: reason });
-          firebaseSuccess = true;
-        } catch (e) {
-          console.warn('Firestore block failed, falling back to Supabase registry:', e);
-        }
-
-        // Secondary fallback to Supabase enrollment status
-        const { error } = await supabase
-          .from('enrollments')
-          .update({ status: 'blocked', notes: `Administrative Block: ${reason}` })
-          .eq('user_id', id);
-        
-        if (error && !firebaseSuccess) throw new Error('Failed to block user on both platforms. Please check Firebase rules or Supabase connection.');
-
-        if (user?.uid) logAuditAction(user.uid, 'block_user', 'profile', id);
-        fetchAllData();
-      },
-      unblockUser: async (id) => {
-        let firebaseSuccess = false;
-        try {
-          const userRef = doc(db, 'users', id);
-          await updateDoc(userRef, { is_blocked: false, block_reason: null });
-          firebaseSuccess = true;
-        } catch (e) {
-          console.warn('Firestore unblock failed, falling back to Supabase registry:', e);
-        }
-
-        // Secondary fallback to restore status to enrolled
-        const { error } = await supabase
-          .from('enrollments')
-          .update({ status: 'enrolled' })
-          .eq('user_id', id)
-          .eq('status', 'blocked');
-        
-        if (error && !firebaseSuccess) throw new Error('Failed to unblock user on both platforms.');
-
-        if (user?.uid) logAuditAction(user.uid, 'unblock_user', 'profile', id);
-        fetchAllData();
-      },
-      updateProfile: async (id, updates) => {
-        try {
-          const userRef = doc(db, 'users', id);
-          await updateDoc(userRef, updates);
-        } catch (e) {
-          console.error('Firestore profile update failed:', e);
-          throw new Error('You do not have permission to update account metadata directly in Firebase. Please update your Firebase Security Rules.');
-        }
-
-        if (user?.uid) logAuditAction(user.uid, 'update_user_profile', 'profile', id, updates);
-        fetchAllData();
-      },
-      deleteUserAccount: async (id) => {
-        // 1. Delete from Firestore (Account Master)
-        try {
-          await deleteDoc(doc(db, 'users', id));
-        } catch (e) {
-          console.warn('Firebase account deletion restricted by permissions. Still cleaning up Supabase data...', e);
-        }
-        
-        // 2. Delete from Supabase registry (Enrollment)
-        const { error: enrollErr } = await supabase.from('enrollments').delete().eq('user_id', id);
-        if (enrollErr) throw enrollErr;
-        
-        if (user?.uid) logAuditAction(user.uid, 'delete_account', 'profile', id);
-        fetchAllData();
-      },
-      // Audit Logs
-      auditLogs
     }}>
       {children}
     </DataContext.Provider>

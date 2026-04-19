@@ -25,15 +25,14 @@ export interface EnrollmentForm {
     accommodation: string;
   };
   subjects: Array<{ id: number; name: string }>;
+  existingId?: string;
 }
 
 export const submitEnrollment = async (formData: EnrollmentForm) => {
+  const existingId = formData.existingId;
   try {
     const firebaseUid = auth.currentUser?.uid;
     if (!firebaseUid) {
-        // This check should ideally be done before calling submitEnrollment,
-        // or handled more gracefully in the UI.
-        console.error('No authenticated Firebase user found in submitEnrollment');
         return {
             success: false,
             error: 'No authenticated user found. Please log in again.'
@@ -41,9 +40,8 @@ export const submitEnrollment = async (formData: EnrollmentForm) => {
     }
 
     // Create enrollment record
-    // user_id will be set by the database default value: auth.uid()
-    const enrollmentRecord = {
-      user_id: firebaseUid, // Add Firebase UID to satisfy RLS
+    const enrollmentRecord: any = {
+      user_id: firebaseUid,
       personal_info: formData.personalInfo,
       educational_background: {
         lastGradeLevel: formData.educationalBackground.lastGradeLevel,
@@ -58,46 +56,58 @@ export const submitEnrollment = async (formData: EnrollmentForm) => {
       },
       subjects: formData.subjects,
       status: 'pending',
-      status_history: [{
-        status: 'pending',
-        date: new Date().toISOString(),
-        notes: 'Enrollment submitted',
-        updated_by: firebaseUid // Using Firebase UID for updated_by for now.
-                               // Ensure this column type supports string or is handled by backend.
-      }],
       submitted_at: new Date().toISOString()
     };
 
-    console.log('Attempting to insert enrollment record...');
+    if (existingId) {
+      enrollmentRecord.is_resubmission = true;
+      
+      // For updates, we need to fetch and append to history
+      const { data: current } = await supabase
+        .from('enrollments')
+        .select('status_history')
+        .eq('id', existingId)
+        .single();
+      
+      const history = current?.status_history || [];
+      enrollmentRecord.status_history = [...history, {
+        status: 'pending',
+        date: new Date().toISOString(),
+        notes: 'Application resubmitted after admin feedback',
+        updated_by: firebaseUid
+      }];
 
-    // Use the single Supabase client instance
-    const { data, error } = await supabase
-      .from('enrollments')
-      .insert([enrollmentRecord])
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('enrollments')
+        .update(enrollmentRecord)
+        .eq('id', existingId)
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Error submitting enrollment:', error);
-      return {
-        success: false,
-        error: 'Failed to submit enrollment. Please try again.'
-      };
+      if (error) throw error;
+      return { success: true, data };
+    } else {
+      enrollmentRecord.status_history = [{
+        status: 'pending',
+        date: new Date().toISOString(),
+        notes: 'Enrollment submitted',
+        updated_by: firebaseUid
+      }];
+
+      const { data, error } = await supabase
+        .from('enrollments')
+        .insert([enrollmentRecord])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
     }
-
-    console.log('Enrollment submitted successfully:', data);
-
-    // Notification email disabled per product decision: admins will review in-panel and contact applicants manually.
-
-    return {
-      success: true,
-      data
-    };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in submitEnrollment:', error);
     return {
       success: false,
-      error: 'An unexpected error occurred. Please try again.'
+      error: error.message || 'An unexpected error occurred. Please try again.'
     };
   }
 };

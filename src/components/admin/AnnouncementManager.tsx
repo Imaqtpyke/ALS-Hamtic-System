@@ -5,10 +5,10 @@ export const AnnouncementManager = ({ announcements, handleAddAnnouncement, hand
     <div className="space-y-10">
       <div className="flex items-center justify-between">
         <div>
-           <h2 className="text-3xl font-black tracking-tighter uppercase font-display">System Notices</h2>
+           <h2 className="text-3xl font-black tracking-tighter uppercase font-display">System Announcements</h2>
            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em]">Communication Center</p>
         </div>
-        <button onClick={handleAddAnnouncement} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm">Post New Notice</button>
+        <button onClick={handleAddAnnouncement} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 active:scale-95 transition-all text-sm">Post New Announcement</button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

@@ -5,9 +5,11 @@ import { toast } from 'react-hot-toast';
 
 export type AppNotification = {
   id: string;
+  title?: string;
   message: string;
   createdAt: string; // ISO string
   read: boolean;
+  type?: 'generic' | 'admin_message';
 };
 
 type NotificationsContextValue = {
@@ -26,41 +28,32 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
-  // Fetch notifications from Supabase
   const fetchNotifications = async () => {
     if (!user?.uid || !isSupabaseConfigured) return;
 
-    // Firebase UIDs are NOT UUIDs. Supabase's notifications.user_id is uuid typed.
-    // Guard: skip the query entirely if the uid doesn't match UUID v4 format.
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidPattern.test(user.uid)) {
-      if (import.meta.env.DEV) {
-        console.warn('[NotificationsContext] Skipping notifications fetch — user.uid is not a UUID:', user.uid);
-      }
-      return;
-    }
-
     try {
-      const { data, error } = await supabase
-        .from('notifications')
+      let allNotifications: AppNotification[] = [];
+
+      // 1. Fetch from 'admin_messages' (supports Firebase UIDs - text column)
+      const { data: mData } = await supabase
+        .from('admin_messages')
         .select('*')
         .eq('user_id', user.uid)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
 
-      if (error) {
-        // Silently ignore 400 errors (table may not exist yet) and permission errors
-        if (import.meta.env.DEV) {
-          console.warn('[NotificationsContext] Notifications fetch skipped:', error.message);
-        }
-        return;
+      if (mData) {
+        allNotifications = mData.map(m => ({
+          id: m.id,
+          title: 'Message from Admin',
+          message: m.message,
+          createdAt: m.created_at,
+          read: m.is_read,
+          type: 'admin_message'
+        }));
       }
-      setNotifications(data.map(n => ({
-        id: n.id,
-        message: n.message,
-        createdAt: n.created_at,
-        read: n.is_read
-      })));
+
+      setNotifications(allNotifications);
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn('[NotificationsContext] Notifications fetch failed silently:', err);
@@ -78,16 +71,15 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     // Optimistic Update
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
-    const { error } = await supabase
-      .from('notifications')
+    // Update admin_messages table
+    await supabase
+      .from('admin_messages')
       .update({ is_read: true })
       .eq('user_id', user.uid)
       .eq('is_read', false);
 
-    if (error) {
-       toast.error('Failed to sync notification status');
-       fetchNotifications(); // Rollback/Resync
-    }
+    // Resync anyway to be sure
+    await fetchNotifications();
   };
 
   const removeNotification = async (id: string) => {
@@ -96,15 +88,11 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     // Optimistic Update
     setNotifications(prev => prev.filter(n => n.id !== id));
 
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id);
+    // Try deleting from both (one will likely fail or do nothing depending on current item type)
+    await supabase.from('notifications').delete().eq('id', id);
+    await supabase.from('admin_messages').delete().eq('id', id);
 
-    if (error) {
-       toast.error('Failed to delete notification');
-       fetchNotifications(); // Rollback/Resync
-    }
+    // No hard error check here to keep it simple, fetchNotifications will resync if needed
   };
 
   // Real-time synchronization
@@ -120,19 +108,21 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         {
           event: '*',
           schema: 'public',
-          table: 'notifications',
+          table: 'admin_messages',
           filter: `user_id=eq.${user.uid}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            const newN: AppNotification = {
+            const newM: AppNotification = {
               id: payload.new.id,
+              title: 'Message from Admin',
               message: payload.new.message,
               createdAt: payload.new.created_at,
-              read: payload.new.is_read
+              read: payload.new.is_read,
+              type: 'admin_message'
             };
-            addNotification(newN);
-            toast.success('New update received!', { icon: '🔔' });
+            addNotification(newM);
+            toast.success('New message from Admin!', { icon: '✉️' });
           } else {
             fetchNotifications();
           }

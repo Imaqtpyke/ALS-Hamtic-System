@@ -44,6 +44,7 @@ const NotificationBell: React.FC = () => {
               items.map((n) => (
                 <li key={n.id} className={`px-4 py-3 text-sm flex items-start gap-2 ${n.read ? 'text-gray-600' : 'text-gray-800'}`}>
                   <div className="flex-1">
+                    {n.title && <p className="font-bold text-xs uppercase tracking-tight text-gray-500 mb-0.5">{n.title}</p>}
                     <p>{n.message}</p>
                     <p className="text-[11px] text-gray-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                   </div>

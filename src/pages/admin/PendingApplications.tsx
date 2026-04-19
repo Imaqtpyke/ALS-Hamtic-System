@@ -40,7 +40,6 @@ const PendingApplications = () => {
   const [loading, setLoading] = useState(true);
   const [selectedApplication, setSelectedApplication] = useState<EnrollmentApplication | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
   // Applications filter state
   const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
   const [searchTerm, setSearchTerm] = useState('');
@@ -271,7 +270,6 @@ const PendingApplications = () => {
       toast.success(emailAction === 'approve' ? 'Application approved & email sent!' : 'Application rejected & email sent!');
       setShowEmailModal(false);
       setShowModal(false);
-      setRejectionReason('');
       fetchPendingApplications();
     } catch (err: any) {
       console.error('Error processing application action:', err);
@@ -281,15 +279,7 @@ const PendingApplications = () => {
     }
   };
 
-  // Legacy wrappers kept to avoid breaking any direct calls
-  const handleApprove = (applicationId: string) => {
-    const app = applications.find(a => a.id === applicationId);
-    if (app) openEmailModal('approve', app);
-  };
-  const handleReject = (applicationId: string) => {
-    const app = applications.find(a => a.id === applicationId);
-    if (app) openEmailModal('reject', app);
-  };
+
 
   // Delete an application only if it's not pending
   const deleteApplication = async (applicationId: string) => {
@@ -551,7 +541,7 @@ const PendingApplications = () => {
                       onClick={() => viewApplicationDetails(application)}
                       className="btn-primary py-2 px-6 text-sm"
                     >
-                      Review
+                      Preview
                     </button>
                     <button
                       onClick={() => deleteApplication(application.id)}

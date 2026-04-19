@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { UserPlus as UserPlusIcon, Clock as ClockIcon, Globe as GlobeIcon, Shield as ShieldIcon, ChevronRight as ChevronRightIcon, CheckCircle as CheckCircleIcon, FileText as FileTextIcon } from 'lucide-react';
+import { UserPlus as UserPlusIcon, Shield as ShieldIcon, ChevronRight as ChevronRightIcon, CheckCircle as CheckCircleIcon, FileText as FileTextIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Home = () => {
@@ -29,7 +29,7 @@ const Home = () => {
                 <span className="text-red-400">Alternative Learning System</span>
               </h1>
               <p className="mt-8 text-xl text-blue-50/90 max-w-2xl leading-relaxed">
-                Anyone in Hamtic, Antique can now sign up for ALS online — no office visit needed.
+                Residents of Hamtic, Antique can now enroll in the Alternative Learning System online — no need to visit the DepEd office in person.
               </p>
               <div className="mt-12 flex flex-col sm:flex-row gap-5">
                 <Link
@@ -86,7 +86,7 @@ const Home = () => {
             <div className="h-1.5 w-20 bg-[#E2231A] mx-auto mt-6 rounded-full"></div>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[{
             icon: <FileTextIcon className="h-6 w-6 text-[#0038A8]" />,
             title: 'Online Application',
@@ -94,23 +94,11 @@ const Home = () => {
           }, {
             icon: <CheckCircleIcon className="h-6 w-6 text-[#0038A8]" />,
             title: 'Direct Communication',
-            description: 'Receive real-time system notices and updates directly from the ALS Hamtic Coordinator.'
+            description: 'Receive real-time system announcements and updates directly from the ALS Hamtic Coordinator.'
           }, {
             icon: <ShieldIcon className="h-6 w-6 text-[#0038A8]" />,
             title: 'Privacy Focus',
             description: 'Your personal information is handled with security and respect for your privacy.'
-          }, {
-            icon: <ClockIcon className="h-6 w-6 text-[#0038A8]" />,
-            title: 'Real-time Tracking',
-            description: 'Log in to your dashboard to see exactly where your application stands in the queue.'
-          }, {
-            icon: <GlobeIcon className="h-6 w-6 text-[#0038A8]" />,
-            title: 'Works on Any Phone',
-            description: 'Fully optimized for mobile phones, tablets, and desktops for complete accessibility.'
-          }, {
-            icon: <UserPlusIcon className="h-6 w-6 text-[#0038A8]" />,
-            title: 'Fast Support',
-            description: 'Use the built-in contact form to send inquiries directly to the administrative team.'
           }].map((feature, index) => <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
@@ -163,7 +151,7 @@ const Home = () => {
           }, {
             step: '03',
             title: 'Assessment',
-            description: 'Wait while our coordinators review your submitted information and preferred schedule.',
+            description: 'Our coordinators will review your application. You may receive a message if any information needs to be corrected.',
             icon: <ShieldIcon className="h-6 w-6" />
           }, {
             step: '04',
@@ -206,7 +194,7 @@ const Home = () => {
               Education is the key to<br /><span className="text-red-400">a better future.</span>
             </h2>
             <p className="text-xl text-blue-100 mb-12 max-w-2xl mx-auto relative z-10">
-              Hundreds of people in Hamtic have gone back to school through ALS. You can too.
+              Many residents of Hamtic have continued their education through ALS. Start your journey today.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center relative z-10">
               <Link to="/enrollment" className="btn-cta text-xl px-10 py-5">

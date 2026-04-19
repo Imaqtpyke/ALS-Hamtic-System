@@ -49,12 +49,56 @@ type EnrollmentResult = {
   data?: any;
 };
 
+const ConfirmModal = ({ 
+  title, 
+  description, 
+  onConfirm, 
+  onCancel, 
+  confirmText = "Confirm", 
+  cancelText = "Back",
+  variant = "primary"
+}: any) => (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4 text-sans">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      className="bg-white p-8 rounded-[32px] shadow-2xl w-full max-w-lg border border-gray-100 flex flex-col"
+    >
+      <h2 className="text-2xl font-black mb-2 font-display uppercase tracking-tight text-gray-900">{title}</h2>
+      <p className="text-sm font-medium text-gray-500 mb-8 leading-relaxed">{description}</p>
+      
+      <div className="flex justify-end gap-6 pt-8 border-t border-gray-50">
+        <button 
+          className="text-sm font-black text-gray-500 hover:text-gray-900 transition-colors uppercase tracking-widest" 
+          onClick={onCancel}
+        >
+          {cancelText}
+        </button>
+        <button 
+          className={`px-10 py-4 font-black rounded-3xl shadow-xl active:scale-95 transition-all text-sm uppercase tracking-widest ${
+            variant === 'danger' 
+              ? 'bg-red-600 text-white shadow-red-600/20 hover:bg-red-700' 
+              : 'bg-[#0038A8] text-white shadow-blue-600/20 hover:bg-blue-800'
+          }`}
+          onClick={() => {
+            onConfirm();
+            onCancel();
+          }}
+        >
+          {confirmText}
+        </button>
+      </div>
+    </motion.div>
+  </div>
+);
+
 const Enrollment = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [existingEnrollmentId, setExistingEnrollmentId] = useState<string | null>(null);
   const ENABLE_DRAFT = false;
   const [formData, setFormData] = useState<FormData>({
     personalInfo: {
@@ -92,6 +136,14 @@ const Enrollment = () => {
   const [submissionError, setSubmissionError] = useState<{ message: string; details?: string } | null>(null);
   const STORAGE_KEY = 'als_enrollment_draft_v1';
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    description: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'primary';
+  } | null>(null);
 
   const commonAccommodations = [
     "None",
@@ -138,13 +190,60 @@ const Enrollment = () => {
         const active = (data || [])
           .map((s: any) => ({ id: Number(s.id), name: s.name as string }));
         setAvailableSubjects(active);
-      } catch (e) {
-        // on error, set to empty and show nothing
+      } catch {
         setAvailableSubjects([]);
       }
     };
     loadSubjects();
   }, []);
+
+  // Pre-fill if there's a pending enrollment and mark messages as read
+  useEffect(() => {
+    if (!user) return;
+
+    const checkExisting = async () => {
+      try {
+        const { data } = await supabase
+          .from('enrollments')
+          .select('*')
+          .eq('user_id', user.uid)
+          .eq('status', 'pending')
+          .maybeSingle();
+        
+        if (data) {
+          setExistingEnrollmentId(data.id);
+          
+          // Pre-fill form data
+          setFormData({
+            personalInfo: {
+              ...data.personal_info,
+              addressStreet: data.personal_info.addressStreet || '',
+              addressBarangay: data.personal_info.addressBarangay || '',
+              addressCity: data.personal_info.addressCity || '',
+              addressProvince: data.personal_info.addressProvince || '',
+              addressZip: data.personal_info.addressZip || '',
+              lrn: data.personal_info.lrn || '',
+              address: data.personal_info.address || ''
+            },
+            educationalBackground: data.educational_background,
+            learningPreferences: data.learning_preferences,
+            subjects: data.subjects || []
+          });
+
+          // Mark messages as read
+          await supabase
+            .from('admin_messages')
+            .update({ is_read: true })
+            .eq('user_id', user.uid)
+            .eq('is_read', false);
+        }
+      } catch (err) {
+        console.error('Error checking existing enrollment:', err);
+      }
+    };
+
+    checkExisting();
+  }, [user]);
 
   // Auto-save draft when formData changes (debounced)
   useEffect(() => {
@@ -399,8 +498,8 @@ const Enrollment = () => {
       window.scrollTo(0, 0);
     }
   };
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+
+  const processSubmit = async () => {
     setIsSubmitting(true);
     setSubmissionError(null);
 
@@ -415,12 +514,12 @@ const Enrollment = () => {
     }
 
     try {
-      // Pass only the form data to submitEnrollment
       const result = await submitEnrollment({
         personalInfo: formData.personalInfo,
         educationalBackground: formData.educationalBackground,
         learningPreferences: formData.learningPreferences,
-        subjects: formData.subjects
+        subjects: formData.subjects,
+        existingId: existingEnrollmentId || undefined
       }) as EnrollmentResult;
 
       if (result.success) {
@@ -443,6 +542,17 @@ const Enrollment = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setConfirmModal({
+      title: 'Final Confirmation',
+      description: 'Are you sure all the information you provided is correct? You will not be able to edit your application once it is submitted for review.',
+      confirmText: 'Submit Now',
+      cancelText: 'Check Again',
+      onConfirm: processSubmit
+    });
   };
   // availableSubjects now loaded from Supabase or defaults via state above
   if (isSubmitted) {
@@ -908,9 +1018,14 @@ const Enrollment = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm('Are you sure you want to cancel your application? Any unsaved progress will be lost.')) {
-                      window.location.href = '/';
-                    }
+                    setConfirmModal({
+                      title: 'Cancel Enrollment',
+                      description: 'Are you sure you want to cancel your application? Any unsaved progress will be permanently lost.',
+                      confirmText: 'Yes, Cancel',
+                      cancelText: 'Stay Here',
+                      variant: 'danger',
+                      onConfirm: () => { window.location.href = '/'; }
+                    });
                   }}
                   className="px-6 py-3 rounded-lg text-sm font-bold text-red-400 hover:text-red-500 transition-colors"
                 >
@@ -976,6 +1091,12 @@ const Enrollment = () => {
           </ul>
         </div>
       </div>
+      {confirmModal && (
+        <ConfirmModal 
+          {...confirmModal} 
+          onCancel={() => setConfirmModal(null)} 
+        />
+      )}
     </div>;
 };
 export default Enrollment;

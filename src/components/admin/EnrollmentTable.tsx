@@ -1,4 +1,4 @@
-import { EyeIcon, CheckCircleIcon, AlertTriangleIcon, XIcon, TrashIcon } from 'lucide-react';
+import { EyeIcon, CheckCircleIcon, XIcon, TrashIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { sendStatusEmail } from '../../services/notificationService';
 
@@ -28,7 +28,6 @@ export const EnrollmentTable = ({
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="enrolled">Enrolled</option>
-            <option value="review">Under Review</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
@@ -93,26 +92,6 @@ export const EnrollmentTable = ({
                        </button>
                      )}
                      
-                     <button 
-                       onClick={() => {
-                         setPromptModal({
-                           title: 'Flag for Review',
-                           fields: [{ name: 'reason', label: 'Missing Info / Issue', placeholder: 'e.g. Birth certificate is blurry' }],
-                           onSubmit: async (data: any) => {
-                             setIsPromptSubmitting(true);
-                             await updateStudent(s.id, { status: 'review' });
-                             await sendStatusEmail(s.name, s.email, 'review', data.reason);
-                             toast.success('Flagged for review');
-                             setPromptModal(null);
-                             setIsPromptSubmitting(false);
-                           }
-                         });
-                       }}
-                       className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm active:scale-90"
-                       title="Review"
-                     >
-                       <AlertTriangleIcon size={16} />
-                     </button>
 
                      <button 
                        onClick={() => {

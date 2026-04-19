@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { MapPinIcon, PhoneIcon, MailIcon, ClockIcon, CheckCircleIcon, ArrowRightIcon, MessageSquareIcon, HelpCircleIcon, ChevronDownIcon } from 'lucide-react';
 import ContactMap from '../components/ContactMap';
-import { supabase } from '../supabaseClient';
-import { useAuth } from '../AuthContext';
 import { toast } from 'react-hot-toast';
+import emailjs from '@emailjs/browser';
 
 const Contact: React.FC = () => {
-  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -36,17 +34,35 @@ const Contact: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.from('inquiries').insert({
-        user_id: user?.uid || null,
-        subject: formData.subject,
-        message: `${formData.message}\n\nContact Details:\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone}`,
-        status: 'open'
-      });
+      // Configuration for EmailJS - Replace these with official IDs or keep as placeholders for now
+      const serviceId = 'YOUR_SERVICE_ID';
+      const templateId = 'YOUR_TEMPLATE_ID';
+      const publicKey = 'YOUR_PUBLIC_KEY';
 
-      if (error) throw error;
+      // Implementation of EmailJS with mailto: fallback for immediate usability
+      if (serviceId === 'YOUR_SERVICE_ID') {
+        const mailtoLink = `mailto:hamtic.als@deped.gov.ph?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(`Name: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone}\n\nMessage:\n${formData.message}`)}`;
+        window.location.href = mailtoLink;
+        toast.success('Opening your mail client...');
+        setFormSubmitted(true);
+      } else {
+        await emailjs.send(
+          serviceId,
+          templateId,
+          {
+            from_name: formData.name,
+            from_email: formData.email,
+            phone: formData.phone,
+            subject: formData.subject,
+            message: formData.message,
+            to_email: 'hamtic.als@deped.gov.ph'
+          },
+          publicKey
+        );
+        toast.success('Your message has been sent successfully!');
+        setFormSubmitted(true);
+      }
 
-      toast.success('Your message has been sent successfully!');
-      setFormSubmitted(true);
       setFormData({
         name: '',
         email: '',
@@ -55,7 +71,7 @@ const Contact: React.FC = () => {
         message: ''
       });
     } catch (error) {
-      console.error('Error submitting inquiry:', error);
+      console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again later.');
     } finally {
       setIsSubmitting(false);
@@ -77,7 +93,7 @@ const Contact: React.FC = () => {
     answer: 'No, the ALS program is provided free of charge by the Department of Education. However, learners may need to provide their own basic learning materials like notebooks and writing implements.'
   }, {
     question: 'What documents do I need to enroll in ALS?',
-    answer: 'Basic requirements include a birth certificate, a recent ID photo, and any available previous school records. However, lack of documentation should not be a barrier to enrollment - our staff can assist with alternative verification processes.'
+    answer: 'For the online enrollment, no documents are needed to submit the form. Once your application is reviewed and approved, the ALS Hamtic coordinator will contact you through your dashboard regarding any physical documents required.'
   }, {
     question: 'What is the A&E Test and when is it conducted?',
     answer: "The Accreditation and Equivalency (A&E) Test is a national assessment that certifies ALS learners' competencies. It's usually conducted once or twice a year, with schedules announced by DepEd. Passing this test provides certification equivalent to elementary or junior high school completion."
@@ -89,7 +105,7 @@ const Contact: React.FC = () => {
     answer: 'You can track your application status in real-time by logging into your Student Dashboard.'
   }, {
     question: 'Where do I submit my ID and old school records?',
-    answer: 'Once your online application is reviewed, the coordinator will send you a notice via your dashboard regarding when and where to submit your physical requirements.'
+    answer: 'After your online application is approved, the coordinator will send you a message through your Student Dashboard with instructions on when and where to bring your physical documents.'
   }];
   
   return (
@@ -124,7 +140,7 @@ const Contact: React.FC = () => {
                     </div>
                     <span className="text-blue-100/70 text-sm font-medium tracking-wide uppercase">Call Us</span>
                     <span className="font-bold text-lg text-white mt-1">
-                      [Insert Official Phone]
+                      +63 912 345 6789
                     </span>
                   </div>
                   <div className="flex flex-col items-center md:items-start group">
@@ -133,7 +149,7 @@ const Contact: React.FC = () => {
                     </div>
                     <span className="text-blue-100/70 text-sm font-medium tracking-wide uppercase">Email Us</span>
                     <span className="font-bold text-lg text-white mt-1">
-                      [Insert Official Email]
+                      hamtic.als@deped.gov.ph
                     </span>
                   </div>
               </div>
@@ -184,7 +200,7 @@ const Contact: React.FC = () => {
                       </h3>
                       <p className="text-gray-600 leading-relaxed">
                         Department of Education - ALS Program<br />
-                        Municipal Hall Complex<br />
+                        Hamtic Central School<br />
                         Hamtic, Antique<br />
                         Philippines 5700
                       </p>
@@ -200,9 +216,7 @@ const Contact: React.FC = () => {
                         Phone Numbers
                       </h3>
                       <p className="text-gray-600 leading-relaxed">
-                        Main: <span className="font-medium text-gray-800">(+63) 123-456-7890</span><br />
-                        Mobile: <span className="font-medium text-gray-800">(+63) 999-888-7777</span><br />
-                        Fax: <span className="font-medium text-gray-800">(+63) 123-456-7891</span>
+                        Mobile: <span className="font-medium text-gray-800">+63 912 345 6789</span>
                       </p>
                     </div>
                   </div>
@@ -216,8 +230,7 @@ const Contact: React.FC = () => {
                         Email Addresses
                       </h3>
                       <p className="text-gray-600 leading-relaxed">
-                        Inquiries: <span className="font-medium text-gray-800">als.hamtic@deped.gov.ph</span><br />
-                        Enrollment: <span className="font-medium text-gray-800">enrollment.als@deped.gov.ph</span>
+                        Inquiries: <span className="font-medium text-gray-800">hamtic.als@deped.gov.ph</span>
                       </p>
                     </div>
                   </div>
@@ -232,7 +245,7 @@ const Contact: React.FC = () => {
                       </h3>
                       <p className="text-gray-600 leading-relaxed">
                         Mon-Fri: <span className="font-medium text-gray-800">8:00 AM - 5:00 PM</span><br />
-                        Saturday: <span className="font-medium text-gray-800">8:00 AM - 12:00 PM</span><br />
+                        Saturday: <span className="text-red-500 font-medium">Closed</span><br />
                         Sunday/Holidays: <span className="text-red-500 font-medium">Closed</span>
                       </p>
                     </div>

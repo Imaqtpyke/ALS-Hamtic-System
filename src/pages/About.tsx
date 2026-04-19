@@ -1,4 +1,4 @@
-import { BookOpenIcon, UsersIcon, TargetIcon, AwardIcon, ClipboardCheckIcon, ArrowRightIcon } from 'lucide-react';
+import { UsersIcon, TargetIcon, AwardIcon, ClipboardCheckIcon, ArrowRightIcon } from 'lucide-react';
 
 const About = () => {
   return (
@@ -22,7 +22,7 @@ const About = () => {
                  Quality Education for <span className="text-white opacity-90">All in Hamtic</span>
                </h1>
                <p className="mt-6 text-xl text-blue-100 max-w-2xl font-medium">
-                 ALS gives everyone in Hamtic, Antique the chance to finish their schooling — no matter their age or situation.
+                 The ALS program in Hamtic, Antique gives out-of-school youth and adults the opportunity to complete their basic education — no matter their age or situation.
                </p>
              </div>
              <div className="md:col-span-2 hidden md:block">
@@ -151,51 +151,6 @@ const About = () => {
         </div>
       </section>
 
-      {/* Programs Offered */}
-      <section className="py-16 md:py-24 bg-[var(--surface-low)]">
-        <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <span className="text-red-600 font-bold tracking-widest uppercase text-xs">
-              Curriculum
-            </span>
-            <h2 className="text-4xl sm:text-5xl font-black text-gray-900 mt-3 font-display">
-              Programs Offered
-            </h2>
-            <p className="mt-4 text-xl text-gray-600 max-w-3xl mx-auto">
-              Our ALS program offers varied learning tracks to meet diverse educational needs.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { title: 'Basic Literacy Program', desc: 'Use this portal to register for non-readers focusing on foundational literacy and numeracy skills.', points: ['Reading and Writing', 'Basic Mathematics', 'Functional Life Skills'] },
-              { title: 'Elementary Level', desc: 'Use this portal to register for formal elementary education equivalence tracks.', points: ['Communication Skills', 'Problem Solving', 'Scientific Literacy'] },
-              { title: 'Secondary Level', desc: 'Use this portal to register for junior high school equivalence tracks.', points: ['Advanced Communication', 'Mathematics and Sciences', 'Digital Literacy'] }
-            ].map((prog, idx) => (
-              <div key={idx} className="card-tonal p-8 group hover:-translate-y-2 transition-all duration-300">
-                <div className="bg-[#0038A8]/5 rounded-2xl w-14 h-14 flex items-center justify-center mb-6 group-hover:bg-[#0038A8] transition-colors duration-300">
-                  <BookOpenIcon className="h-7 w-7 text-[#0038A8] group-hover:text-white transition-colors duration-300" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3 font-display">
-                  {prog.title}
-                </h3>
-                <p className="text-gray-600 mb-6 min-h-[50px]">
-                  {prog.desc}
-                </p>
-                <div className="h-px w-full bg-gray-100 mb-6"></div>
-                <ul className="space-y-3">
-                  {prog.points.map((pt, pIdx) => (
-                    <li key={pIdx} className="flex items-center text-gray-700">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#E2231A] mr-3"></div>
-                      <span className="font-medium">{pt}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Certification and Equivalency */}
       <section className="py-16 md:py-24 bg-white">
@@ -261,7 +216,7 @@ const About = () => {
             Ready to Sign Up?
           </h2>
           <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
-            Starting is easy. Fill out the online form and our team will guide you from there.
+            Starting is easy. Fill out the online enrollment form and the ALS Hamtic coordinator will review your application and guide you through the next steps.
           </p>
           <a href="/enrollment" className="btn-cta text-lg px-8 py-4 inline-flex items-center group">
              Start Enrollment

@@ -56,7 +56,6 @@ export const SubjectManagement = ({
                 <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
                    <BookOpenIcon size={24} />
                 </div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Official Subject</p>
                 <h3 className="text-2xl font-black text-gray-900 mb-6 font-display leading-none uppercase tracking-tight line-clamp-2 min-h-[3rem]">{s.name}</h3>
                 
                 <div className="flex gap-3 pt-6 border-t border-gray-50">
@@ -86,19 +85,32 @@ export const SubjectManagement = ({
                      })}
                      className="flex-1 py-3 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all"
                    >
-                     Manage
+                     Edit
                    </button>
-                   <button 
-                     onClick={() => {
-                       if(window.confirm(`Remove "${s.name}"? This will disable this subject for new enrollments.`)) {
-                         deleteSubject(s.id);
-                         toast.success('Subject removed from registry');
-                       }
-                     }}
-                     className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all border border-red-100"
-                   >
-                     <TrashIcon size={16} />
-                   </button>
+                    <button 
+                      onClick={() => {
+                        setPromptModal({
+                          title: 'Confirm Deletion',
+                          description: `Are you sure you want to remove "${s.name}"? This will disable this subject for new enrollments.`,
+                          fields: [],
+                          onSubmit: async () => {
+                            setIsPromptSubmitting(true);
+                            try {
+                              await deleteSubject(s.id);
+                              toast.success('Subject removed from registry');
+                              setPromptModal(null);
+                            } catch (err) {
+                              toast.error('Failed to remove subject');
+                            } finally {
+                              setIsPromptSubmitting(false);
+                            }
+                          }
+                        });
+                      }}
+                      className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                    >
+                      <TrashIcon size={16} />
+                    </button>
                 </div>
              </div>
           ))}

@@ -1,7 +1,6 @@
 import { getApps, getApp, initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  connectAuthEmulator,
   GoogleAuthProvider,
   sendPasswordResetEmail,
   sendEmailVerification,
