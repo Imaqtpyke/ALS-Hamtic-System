@@ -55,7 +55,6 @@ export const EnrollmentTable = ({
                       </div>
                       <div>
                          <p className="text-sm font-black text-gray-900 uppercase tracking-tight leading-tight">{s.name}</p>
-                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">ID: {s.id.slice(0, 8)}</p>
                       </div>
                    </div>
                 </td>
@@ -134,7 +133,6 @@ export const EnrollmentTable = ({
                   </div>
                   <div>
                      <p className="font-black text-sm uppercase tracking-tight">{s.name}</p>
-                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID: {s.id.slice(0, 8)}</p>
                   </div>
                </div>
             </div>

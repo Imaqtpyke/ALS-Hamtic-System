@@ -461,14 +461,12 @@ const PendingApplications = () => {
           }).map((application) => {
             
             if (statusFilter === 'approved') {
-              const studentId = `STU-${application.id.substring(0, 8).toUpperCase()}`;
               return (
                 <div key={application.id} className="card-tonal group">
                   <div className="p-8">
                     <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-8">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-4">
-                          <span className="text-[10px] font-black tracking-widest uppercase bg-[#0038A8]/5 text-[#0038A8] px-3 py-1 rounded-full border border-[#0038A8]/10">{studentId}</span>
                           <span className="px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-full bg-green-50 text-green-700 border border-green-100">Enrolled Student</span>
                         </div>
                         <h2 className="text-3xl font-black text-gray-900 group-hover:text-[#0038A8] transition-colors font-display">

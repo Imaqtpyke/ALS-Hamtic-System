@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { AnnouncementManager } from '../components/admin/AnnouncementManager';
 import { SubjectManagement } from '../components/admin/SubjectManagement';
+import { supabase } from '../supabaseClient';
 import { 
   BookOpenIcon, BellIcon, 
   CheckCircleIcon, UsersIcon, 
   BarChart2Icon, GridIcon, SearchIcon, AlertTriangleIcon, MenuIcon, XIcon,
-  EyeIcon, TrashIcon, CalendarIcon, MessageCircleIcon
+  EyeIcon, TrashIcon, CalendarIcon, MessageCircleIcon, PencilIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDataContext, Student } from '../DataContext';
@@ -120,7 +121,6 @@ const AdminMessageModal = ({ student, onClose, onSubmit, submitting }: any) => {
         <div className="mb-6">
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Send Message to Applicant</p>
           <h2 className="text-2xl font-black font-display uppercase tracking-tight text-gray-900">{student.name}</h2>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Ref ID: {student.id}</p>
         </div>
 
         <div className="space-y-2">
@@ -167,7 +167,8 @@ const AdminDashboard = () => {
     loading: contextLoading, 
     updateStudent, deleteStudent, sendAdminMessage,
     addSubject, updateSubject, deleteSubject,
-    addAnnouncement, updateAnnouncement, deleteAnnouncement
+    addAnnouncement, updateAnnouncement, deleteAnnouncement,
+    refreshData: fetchAllData
   } = useDataContext();
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -454,7 +455,6 @@ const AdminDashboard = () => {
                           <tr key={s.id} className="border-t border-gray-50 group/row hover:bg-gray-50/50 transition-colors">
                             <td className="py-4">
                               <p className="text-sm font-black text-gray-900 leading-tight mb-0.5 uppercase">{s.name}</p>
-                              <p className="text-[10px] text-gray-400 font-bold tabular-nums">ID: {s.id.slice(0, 8)}</p>
                             </td>
                             <td className="py-4">
                               <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
@@ -546,7 +546,6 @@ const AdminDashboard = () => {
                                    )}
                                  </p>
                                  <div className="flex items-center gap-2 mt-1">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID: {s.id.slice(0, 8)}</p>
                                     <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
                                       s.status === 'enrolled' ? 'bg-green-100 text-green-700' :
                                       s.status === 'rejected' ? 'bg-red-100 text-red-700' :
@@ -669,7 +668,6 @@ const AdminDashboard = () => {
                           </div>
                           <div>
                              <p className="font-black text-sm uppercase tracking-tight">{s.name}</p>
-                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID: {s.id.slice(0, 8)}</p>
                           </div>
                        </div>
                     </div>
@@ -771,7 +769,8 @@ const AdminDashboard = () => {
           {selectedStudent && (
             <StudentDetailModal 
               student={selectedStudent} 
-              onClose={() => setSelectedStudent(null)} 
+              onClose={() => setSelectedStudent(null)}
+              fetchAllData={fetchAllData}
             />
           )}
 
@@ -808,12 +807,89 @@ const AdminDashboard = () => {
   );
 };
 
-const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: () => void }) => {
+const inputCls = "w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-[#0038A8] focus:ring-1 focus:ring-[#0038A8]";
+const labelCls = "text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5 block";
+
+const GRADE_LEVELS = [
+  { value: "Grade 1", label: "Grade 1" }, { value: "Grade 2", label: "Grade 2" },
+  { value: "Grade 3", label: "Grade 3" }, { value: "Grade 4", label: "Grade 4" },
+  { value: "Grade 5", label: "Grade 5" }, { value: "Grade 6", label: "Grade 6" },
+  { value: "Grade 7", label: "Grade 7" }, { value: "Grade 8", label: "Grade 8" },
+  { value: "Grade 9", label: "Grade 9" }, { value: "Grade 10", label: "Grade 10" },
+  { value: "Grade 11", label: "Grade 11" }, { value: "Grade 12", label: "Grade 12" },
+  { value: "Elementary Graduate", label: "Elementary Graduate" },
+  { value: "High School Graduate", label: "High School Graduate" },
+];
+
+const SCHEDULES = [
+  { value: "monday_hamtic", label: "Monday - Hamtic Central School CLC (7:00 AM - 4:30 PM)" },
+  { value: "tuesday_hamtic", label: "Tuesday - Hamtic Central School CLC (7:30 AM - 4:30 PM)" },
+  { value: "wednesday_bongbongan", label: "Wednesday - Bongbongan II Elementary School CLC (7:30 AM - 4:30 PM)" },
+  { value: "thursday_hamtic", label: "Thursday - Hamtic Central School CLC (7:30 AM - 4:30 PM)" },
+  { value: "friday_lapaz", label: "Friday - Lapaz Elementary School CLC (7:30 AM - 4:30 PM)" },
+];
+
+const LEARNING_STYLES = [
+  { value: "Reading/Writing", label: "Reading/Writing" },
+  { value: "Visual", label: "Visual" },
+  { value: "Auditory", label: "Auditory" },
+  { value: "Kinesthetic", label: "Kinesthetic" },
+];
+
+const StudentDetailModal = ({ student, onClose, fetchAllData }: { student: Student; onClose: () => void; fetchAllData: () => Promise<void> }) => {
   const data = student.fullData || {};
   const personal = data.personal_info || {};
   const education = data.educational_background || {};
   const preferences = data.learning_preferences || {};
   const subjects = data.subjects || [];
+
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editData, setEditData] = useState<{ personal: any; education: any; preferences: any }>({
+    personal: {}, education: {}, preferences: {}
+  });
+
+  const enterEditMode = () => {
+    setEditData({
+      personal: { ...personal },
+      education: { ...education },
+      preferences: { ...preferences },
+    });
+    setIsEditMode(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditMode(false);
+    setEditData({ personal: {}, education: {}, preferences: {} });
+  };
+
+  const setP = (field: string, val: string) =>
+    setEditData(prev => ({ ...prev, personal: { ...prev.personal, [field]: val } }));
+  const setE = (field: string, val: string) =>
+    setEditData(prev => ({ ...prev, education: { ...prev.education, [field]: val } }));
+  const setPref = (field: string, val: string) =>
+    setEditData(prev => ({ ...prev, preferences: { ...prev.preferences, [field]: val } }));
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('enrollments').update({
+        personal_info: editData.personal,
+        educational_background: editData.education,
+        learning_preferences: editData.preferences,
+      }).eq('id', student.id);
+      if (error) throw error;
+      toast.success('Application updated successfully');
+      setIsEditMode(false);
+      await fetchAllData();
+    } catch {
+      toast.error('Failed to update application. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center z-[100] p-4 lg:p-10">
@@ -830,7 +906,7 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
-                    {personal.firstName} {personal.middleName ? `${personal.middleName} ` : ''}{personal.lastName}
+                    {isEditMode ? (editData.personal.firstName || '') + ' ' + (editData.personal.lastName || '') : `${personal.firstName} ${personal.middleName ? `${personal.middleName} ` : ''}${personal.lastName}`}
                   </h2>
                   <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     student.status === 'enrolled' ? 'bg-green-50 text-green-600 border border-green-100' :
@@ -839,11 +915,16 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
                   }`}>
                     {student.status}
                   </span>
+                  {isEditMode && (
+                    <span className="px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                      Editing Application
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-400 font-medium">
                   <span className="flex items-center gap-1.5">
                     <CheckCircleIcon size={12} className="text-gray-300" />
-                    ID: {student.id.slice(0, 12)}
+                    Verified Profile
                   </span>
                   <span className="flex items-center gap-1.5">
                     <CalendarIcon size={12} className="text-gray-300" />
@@ -853,9 +934,18 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
               </div>
            </div>
            
-           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all active:scale-95">
-             <XIcon size={24} />
-           </button>
+           <div className="flex items-center gap-2">
+             <button
+               onClick={isEditMode ? cancelEdit : enterEditMode}
+               className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:text-[#0038A8] hover:border-[#0038A8] transition-all"
+               title={isEditMode ? 'Cancel Edit' : 'Edit Application'}
+             >
+               {isEditMode ? <XIcon size={20} /> : <PencilIcon size={20} />}
+             </button>
+             <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all active:scale-95">
+               <XIcon size={24} />
+             </button>
+           </div>
         </div>
 
         {/* Scrollable Content */}
@@ -868,22 +958,48 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Step 1: Personal Identity</h3>
              </div>
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <DataField label="First Name" value={personal.firstName} />
-                <DataField label="Middle Name" value={personal.middleName} />
-                <DataField label="Last Name" value={personal.lastName} />
-                <DataField label="Gender" value={personal.gender} />
-                <DataField label="Birthdate" value={personal.birthdate} />
-                <DataField label="LRN (Learner Reference #)" value={personal.lrn} highlight />
-                <div className="md:col-span-2">
-                  <DataField label="Complete Address" value={personal.address} />
-                </div>
-                <DataField label="Street / Purok" value={personal.addressStreet} />
-                <DataField label="Barangay" value={personal.addressBarangay} />
-                <DataField label="City / Municipality" value={personal.addressCity} />
-                <DataField label="Province" value={personal.addressProvince} />
-                <DataField label="ZIP Code" value={personal.addressZip} />
-                <DataField label="Email Address" value={personal.email} highlight />
-                <DataField label="Phone Number" value={personal.phone} highlight />
+               {isEditMode ? (
+                 <>
+                   <div><label className={labelCls}>First Name</label><input className={inputCls} value={editData.personal.firstName || ''} onChange={e => setP('firstName', e.target.value)} /></div>
+                   <div><label className={labelCls}>Middle Name</label><input className={inputCls} value={editData.personal.middleName || ''} onChange={e => setP('middleName', e.target.value)} /></div>
+                   <div><label className={labelCls}>Last Name</label><input className={inputCls} value={editData.personal.lastName || ''} onChange={e => setP('lastName', e.target.value)} /></div>
+                   <div><label className={labelCls}>Gender</label>
+                     <select className={inputCls} value={editData.personal.gender || ''} onChange={e => setP('gender', e.target.value)}>
+                       <option value="">Select</option>
+                       <option value="Male">Male</option>
+                       <option value="Female">Female</option>
+                     </select>
+                   </div>
+                   <div><label className={labelCls}>Birthdate</label><input type="date" className={inputCls} value={editData.personal.birthdate || ''} onChange={e => setP('birthdate', e.target.value)} /></div>
+                   <div><label className={labelCls}>LRN (Learner Reference #)</label><input className={inputCls} value={editData.personal.lrn || ''} onChange={e => setP('lrn', e.target.value)} /></div>
+                   <div><label className={labelCls}>Street / Purok</label><input className={inputCls} value={editData.personal.addressStreet || ''} onChange={e => setP('addressStreet', e.target.value)} /></div>
+                   <div><label className={labelCls}>Barangay</label><input className={inputCls} value={editData.personal.addressBarangay || ''} onChange={e => setP('addressBarangay', e.target.value)} /></div>
+                   <div><label className={labelCls}>City / Municipality</label><input className={inputCls} value={editData.personal.addressCity || ''} onChange={e => setP('addressCity', e.target.value)} /></div>
+                   <div><label className={labelCls}>Province</label><input className={inputCls} value={editData.personal.addressProvince || ''} onChange={e => setP('addressProvince', e.target.value)} /></div>
+                   <div><label className={labelCls}>ZIP Code</label><input className={inputCls} value={editData.personal.addressZip || ''} onChange={e => setP('addressZip', e.target.value)} /></div>
+                   <div><label className={labelCls}>Email Address</label><input type="email" className={inputCls} value={editData.personal.email || ''} onChange={e => setP('email', e.target.value)} /></div>
+                   <div><label className={labelCls}>Phone Number</label><input type="tel" className={inputCls} value={editData.personal.phone || ''} onChange={e => setP('phone', e.target.value)} /></div>
+                 </>
+               ) : (
+                 <>
+                   <DataField label="First Name" value={personal.firstName} />
+                   <DataField label="Middle Name" value={personal.middleName} />
+                   <DataField label="Last Name" value={personal.lastName} />
+                   <DataField label="Gender" value={personal.gender} />
+                   <DataField label="Birthdate" value={personal.birthdate} />
+                   <DataField label="LRN (Learner Reference #)" value={personal.lrn} highlight />
+                   <div className="md:col-span-2">
+                     <DataField label="Complete Address" value={personal.address} />
+                   </div>
+                   <DataField label="Street / Purok" value={personal.addressStreet} />
+                   <DataField label="Barangay" value={personal.addressBarangay} />
+                   <DataField label="City / Municipality" value={personal.addressCity} />
+                   <DataField label="Province" value={personal.addressProvince} />
+                   <DataField label="ZIP Code" value={personal.addressZip} />
+                   <DataField label="Email Address" value={personal.email} highlight />
+                   <DataField label="Phone Number" value={personal.phone} highlight />
+                 </>
+               )}
              </div>
           </section>
 
@@ -894,12 +1010,28 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Step 2: Educational History</h3>
              </div>
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <DataField label="Last Grade Level Completed" value={education.lastGradeLevel} />
-                <DataField label="Last School Attended" value={education.lastSchoolAttended} />
-                <DataField label="Year Last Attended" value={education.yearLastAttended} />
-                <div className="md:col-span-2">
-                   <DataField label="Reason for Stopping" value={education.reason} />
-                </div>
+               {isEditMode ? (
+                 <>
+                   <div><label className={labelCls}>Last Grade Level Completed</label>
+                     <select className={inputCls} value={editData.education.lastGradeLevel || ''} onChange={e => setE('lastGradeLevel', e.target.value)}>
+                       <option value="">Select Grade Level</option>
+                       {GRADE_LEVELS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+                     </select>
+                   </div>
+                   <div><label className={labelCls}>Last School Attended</label><input className={inputCls} value={editData.education.lastSchoolAttended || ''} onChange={e => setE('lastSchoolAttended', e.target.value)} /></div>
+                   <div><label className={labelCls}>Year Last Attended</label><input className={inputCls} value={editData.education.yearLastAttended || ''} onChange={e => setE('yearLastAttended', e.target.value)} /></div>
+                   <div className="md:col-span-2"><label className={labelCls}>Reason for Stopping</label>
+                     <textarea className={`${inputCls} resize-none`} rows={3} value={editData.education.reason || ''} onChange={e => setE('reason', e.target.value)} />
+                   </div>
+                 </>
+               ) : (
+                 <>
+                   <DataField label="Last Grade Level Completed" value={education.lastGradeLevel} />
+                   <DataField label="Last School Attended" value={education.lastSchoolAttended} />
+                   <DataField label="Year Last Attended" value={education.yearLastAttended} />
+                   <div className="md:col-span-2"><DataField label="Reason for Stopping" value={education.reason} /></div>
+                 </>
+               )}
              </div>
           </section>
 
@@ -910,11 +1042,31 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Step 3: Learning Preferences</h3>
              </div>
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <DataField label="Preferred Learning Style" value={preferences.learningStyle} />
-                <DataField label="Preferred Schedule" value={preferences.preferredSchedule?.replace(/_/g, ' ').toUpperCase()} />
-                <div className="md:col-span-2">
-                   <DataField label="Special Accommodations" value={preferences.accommodation} />
-                </div>
+               {isEditMode ? (
+                 <>
+                   <div><label className={labelCls}>Preferred Schedule</label>
+                     <select className={inputCls} value={editData.preferences.preferredSchedule || ''} onChange={e => setPref('preferredSchedule', e.target.value)}>
+                       <option value="">Select Schedule</option>
+                       {SCHEDULES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                     </select>
+                   </div>
+                   <div><label className={labelCls}>Preferred Learning Style</label>
+                     <select className={inputCls} value={editData.preferences.learningStyle || ''} onChange={e => setPref('learningStyle', e.target.value)}>
+                       <option value="">Select Style</option>
+                       {LEARNING_STYLES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                     </select>
+                   </div>
+                   <div className="md:col-span-2"><label className={labelCls}>Special Accommodations</label>
+                     <textarea className={`${inputCls} resize-none`} rows={3} value={editData.preferences.accommodation || ''} onChange={e => setPref('accommodation', e.target.value)} />
+                   </div>
+                 </>
+               ) : (
+                 <>
+                   <DataField label="Preferred Learning Style" value={preferences.learningStyle} />
+                   <DataField label="Preferred Schedule" value={preferences.preferredSchedule?.replace(/_/g, ' ').toUpperCase()} />
+                   <div className="md:col-span-2"><DataField label="Special Accommodations" value={preferences.accommodation} /></div>
+                 </>
+               )}
              </div>
           </section>
 
@@ -964,16 +1116,39 @@ const StudentDetailModal = ({ student, onClose }: { student: Student; onClose: (
         </div>
 
         {/* Action Footer */}
-        <div className="p-6 md:px-12 bg-gray-50 border-t border-gray-100 flex justify-between items-center shrink-0">
-            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">ALS Hamtic Digital Intake Portal v1.0</p>
-            <button onClick={onClose} className="bg-[#0038A8] text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition-all shadow-lg shadow-blue-900/10 active:scale-95">
-              Close
-            </button>
+        <div className="p-6 md:px-12 bg-gray-50 border-t border-gray-100 flex justify-between items-center shrink-0 gap-4">
+
+
+          {/* Right-side actions */}
+          <div className="flex items-center gap-3">
+            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest hidden md:block">ALS Hamtic Digital Intake Portal v1.0</p>
+            {isEditMode ? (
+              <>
+                <button onClick={cancelEdit} className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-all">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="bg-[#0038A8] text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition-all shadow-lg shadow-blue-900/10 active:scale-95 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {isSaving && <span className="w-4 h-4 border-2 border-blue-300 border-t-white rounded-full animate-spin" />}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </>
+            ) : (
+              <button onClick={onClose} className="bg-[#0038A8] text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition-all shadow-lg shadow-blue-900/10 active:scale-95">
+                Close
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     </div>
   );
 };
+
+
 
 const DataField = ({ label, value, highlight = false }: any) => (
   <div className="bg-gray-50 rounded-xl p-4 border border-gray-100/50">
