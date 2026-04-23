@@ -871,7 +871,7 @@ const Enrollment = () => {
                 </div>
                 <div>
                   <label htmlFor="lastSchoolAttended" className="block text-sm font-medium text-gray-700">
-                    Last School Attended
+                    Last School Attended (please input the full name of the school)
                   </label>
                   <input type="text" id="lastSchoolAttended" value={formData.educationalBackground.lastSchoolAttended} onChange={e => handleChange('educationalBackground', 'lastSchoolAttended', e.target.value)} className={`mt-1 block w-full border ${errors.lastSchoolAttended && touched.lastSchoolAttended ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500`} />
                   {errors.lastSchoolAttended && touched.lastSchoolAttended && <p className="text-red-500 text-xs mt-1">{errors.lastSchoolAttended}</p>}
