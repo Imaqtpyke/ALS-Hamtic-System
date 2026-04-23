@@ -498,7 +498,7 @@ const StudentDashboard = () => {
                             <p className="font-bold text-gray-700 uppercase">{enrollment.educational_background?.lastGradeLevel || '—'}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Last School Attended</p>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Last School Attended (please input the full name of the school)</p>
                             <p className="font-bold text-gray-700 uppercase">{enrollment.educational_background?.lastSchoolAttended || '—'}</p>
                           </div>
                           <div>

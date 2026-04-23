@@ -1018,7 +1018,7 @@ const StudentDetailModal = ({ student, onClose, fetchAllData }: { student: Stude
                        {GRADE_LEVELS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
                      </select>
                    </div>
-                   <div><label className={labelCls}>Last School Attended</label><input className={inputCls} value={editData.education.lastSchoolAttended || ''} onChange={e => setE('lastSchoolAttended', e.target.value)} /></div>
+                   <div><label className={labelCls}>Last School Attended (please input the full name of the school)</label><input className={inputCls} value={editData.education.lastSchoolAttended || ''} onChange={e => setE('lastSchoolAttended', e.target.value)} /></div>
                    <div><label className={labelCls}>Year Last Attended</label><input className={inputCls} value={editData.education.yearLastAttended || ''} onChange={e => setE('yearLastAttended', e.target.value)} /></div>
                    <div className="md:col-span-2"><label className={labelCls}>Reason for Stopping</label>
                      <textarea className={`${inputCls} resize-none`} rows={3} value={editData.education.reason || ''} onChange={e => setE('reason', e.target.value)} />
@@ -1027,7 +1027,7 @@ const StudentDetailModal = ({ student, onClose, fetchAllData }: { student: Stude
                ) : (
                  <>
                    <DataField label="Last Grade Level Completed" value={education.lastGradeLevel} />
-                   <DataField label="Last School Attended" value={education.lastSchoolAttended} />
+                   <DataField label="Last School Attended (please input the full name of the school)" value={education.lastSchoolAttended} />
                    <DataField label="Year Last Attended" value={education.yearLastAttended} />
                    <div className="md:col-span-2"><DataField label="Reason for Stopping" value={education.reason} /></div>
                  </>
